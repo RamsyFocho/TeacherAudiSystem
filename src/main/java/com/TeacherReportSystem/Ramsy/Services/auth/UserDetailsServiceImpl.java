@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Optional;
 
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
@@ -15,10 +16,20 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     @Transactional
-    public UserDetails loadUserByUsername(String username)
-            throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow();
-        return UserDetailsImpl.build(user);
+    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
+        // First try to find by email
+        Optional<User> userByEmail = userRepository.findByEmail(usernameOrEmail);
+        if (userByEmail.isPresent()) {
+            return UserDetailsImpl.build(userByEmail.get());
+        }
+        
+        // If not found by email, try to find by username
+        Optional<User> userByUsername = userRepository.findByUsername(usernameOrEmail);
+        if (userByUsername.isPresent()) {
+            return UserDetailsImpl.build(userByUsername.get());
+        }
+        
+        // If not found by either, throw exception
+        throw new UsernameNotFoundException("User not found with email or username: " + usernameOrEmail);
     }
 }

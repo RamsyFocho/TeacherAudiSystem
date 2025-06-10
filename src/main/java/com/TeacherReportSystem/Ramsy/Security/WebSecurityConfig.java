@@ -5,8 +5,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.*;
 import org.springframework.security.authentication.*;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.*;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,9 +17,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.*;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(securedEnabled = true, jsr250Enabled = true)
 public class WebSecurityConfig {
     @Autowired
     UserDetailsServiceImpl userDetailsService;
@@ -32,7 +36,8 @@ public class WebSecurityConfig {
 
     @Bean
     public AuthenticationManager authenticationManager(HttpSecurity http,
-                                                       PasswordEncoder passwordEncoder, UserDetailsServiceImpl userDetailsService)
+                                                     PasswordEncoder passwordEncoder, 
+                                                     UserDetailsServiceImpl userDetailsService)
             throws Exception {
         return http.getSharedObject(AuthenticationManagerBuilder.class)
                 .userDetailsService(userDetailsService)
@@ -46,24 +51,54 @@ public class WebSecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // Configure CORS and security rules
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable())
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
-
+                .csrf(AbstractHttpConfigurer::disable)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/inspector/**").hasRole("INSPECTOR")
-                        .requestMatchers("/api/director/**").hasRole("DIRECTOR")
+                        // Public endpoints
+                        .requestMatchers(
+                            "/api/auth/**",
+                            "/v3/api-docs/**",
+                            "/swagger-ui/**",
+                            "/swagger-ui.html",
+                            "/swagger-resources/**",
+                            "/webjars/**"
+                        ).permitAll()
+                        
+                        // Admin endpoints
+                        .requestMatchers(
+                            "/api/admin/**",
+                            "/api/users/**"
+                        ).hasRole("ADMIN")
+                        
+                        // Teacher management (Admin + Inspector)
+                        .requestMatchers(
+                            "/api/teachers/**"
+                        ).hasAnyRole("ADMIN", "INSPECTOR")
+                        
+                        // Inspection endpoints (Inspector + Director)
+                        .requestMatchers(
+                            "/api/inspections/**"
+                        ).hasAnyRole("INSPECTOR", "DIRECTOR")
+                        
+                        // Report viewing (All roles)
+                        .requestMatchers(
+                            "/api/reports/**"
+                        ).authenticated()
+                        
+                        // Dashboard and analytics (Director)
+                        .requestMatchers(
+                            "/api/analytics/**",
+                            "/api/dashboard/**"
+                        ).hasRole("DIRECTOR")
+                        
+                        // By default, require authentication
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(authenticationJwtTokenFilter(),
@@ -72,14 +107,17 @@ public class WebSecurityConfig {
         return http.build();
     }
 
-    // Global CORS configuration to allow frontend calls (e.g. from any origin)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("*")); // allow all origins
-        configuration.setAllowedMethods(Arrays.asList("GET","POST","PUT","DELETE","OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowedOrigins(List.of("*"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        
+        // Add exposed headers if you're using custom headers in the frontend
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

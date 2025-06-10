@@ -6,11 +6,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class JwtUtils {
+    private static final Logger logger = LoggerFactory.getLogger(JwtUtils.class);
+    
     @Value("${app.jwtSecret}")
     private String jwtSecret;
+    
     @Value("${app.jwtExpirationMs}")
     private int jwtExpirationMs;
 
@@ -18,7 +23,8 @@ public class JwtUtils {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
         return Jwts.builder()
-                .setSubject(userPrincipal.getUsername())
+                .setSubject(userPrincipal.getEmail()) // Use email as subject for consistency
+                .claim("username", userPrincipal.getUsername()) // Include username as a claim
                 .claim("roles", userPrincipal.getAuthorities().stream()
                         .map(item -> item.getAuthority()).collect(Collectors.toList()))
                 .setIssuedAt(now)
@@ -37,10 +43,20 @@ public class JwtUtils {
 
     public boolean validateJwtToken(String authToken) {
         try {
-            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);
+            Jwts.parser()
+                .setSigningKey(jwtSecret)
+                .parseClaimsJws(authToken);
             return true;
-        } catch (JwtException e) {
-            // log or handle token invalid/expired
+        } catch (SignatureException e) {
+            logger.error("Invalid JWT signature: {}", e.getMessage());
+        } catch (MalformedJwtException e) {
+            logger.error("Invalid JWT token: {}", e.getMessage());
+        } catch (ExpiredJwtException e) {
+            logger.error("JWT token is expired: {}", e.getMessage());
+        } catch (UnsupportedJwtException e) {
+            logger.error("JWT token is unsupported: {}", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            logger.error("JWT claims string is empty: {}", e.getMessage());
         }
         return false;
     }

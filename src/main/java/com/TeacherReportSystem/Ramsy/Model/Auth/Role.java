@@ -1,11 +1,14 @@
 package com.TeacherReportSystem.Ramsy.Model.Auth;
 import com.TeacherReportSystem.Ramsy.Model.Auth.ERole;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
 @Entity
 @Table(name = "roles")
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Role {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

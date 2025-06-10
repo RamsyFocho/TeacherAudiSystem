@@ -6,9 +6,10 @@ import lombok.Data;
 import java.time.Instant;
 
 @Entity
-@Table(name = "refresh_tokens")
+@Table(name = "verification_tokens")
 @Data
-public class RefreshToken {
+public class VerificationToken {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -17,7 +18,7 @@ public class RefreshToken {
     private String token;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false)
+    @JoinColumn(nullable = false, name = "user_id")
     private User user;
 
     @Column(nullable = false)
