@@ -95,6 +95,7 @@ public class WebSecurityConfig {
                         // Dashboard and analytics (Director)
                         .requestMatchers(
                             "/api/analytics/**",
+                                "/api/establishments",
                             "/api/dashboard/**"
                         ).hasRole("DIRECTOR")
                         
