@@ -21,4 +21,7 @@ public interface EstablishmentRepository extends JpaRepository<Establishment, Lo
      List<Establishment> findAll();
      Establishment save(Establishment establishment);
      void deleteById(Long id);
+     
+     // Check if an establishment with the given name exists
+     boolean existsByName(String name);
 }

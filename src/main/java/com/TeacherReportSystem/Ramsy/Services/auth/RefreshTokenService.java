@@ -23,14 +23,25 @@ public class RefreshTokenService {
     private UserRepository userRepository;
 
     public RefreshToken createRefreshToken(Long userId) {
-        RefreshToken refreshToken = new RefreshToken();
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
 
-        refreshToken.setUser(user);
-        refreshToken.setToken(UUID.randomUUID().toString());
-        refreshToken.setExpiryDate(Instant.now().plusMillis(REFRESH_TOKEN_DURATION));
+        // Check if user already has a refresh token
+        Optional<RefreshToken> existingToken = refreshTokenRepository.findByUser(user);
+        RefreshToken refreshToken;
+        
+        if (existingToken.isPresent()) {
+            // Update existing token
+            refreshToken = existingToken.get();
+            refreshToken.setToken(UUID.randomUUID().toString());
+            refreshToken.setExpiryDate(Instant.now().plusMillis(REFRESH_TOKEN_DURATION));
+        } else {
+            // Create new token
+            refreshToken = new RefreshToken();
+            refreshToken.setUser(user);
+            refreshToken.setToken(UUID.randomUUID().toString());
+            refreshToken.setExpiryDate(Instant.now().plusMillis(REFRESH_TOKEN_DURATION));
+        }
 
         return refreshTokenRepository.save(refreshToken);
     }

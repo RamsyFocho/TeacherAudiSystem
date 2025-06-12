@@ -3,6 +3,45 @@
 All notable changes to the Teacher Audit System project will be documented in this file.
 
 ## [Unreleased]
+### Added
+- **Email Verification**
+  - Added rate limiting for verification endpoints to prevent abuse
+  - Enhanced email templates with better styling and mobile responsiveness
+  - Added comprehensive test coverage for authentication flows
+  - Added configuration for frontend and backend URL separation
+
+### Fixed
+- **Security**
+  - Fixed CORS configuration to properly handle cross-origin requests
+  - Improved error handling for expired verification tokens
+  - Fixed potential race conditions in token generation
+
+### Changed
+- **Authentication**
+  - Updated verification flow to handle mobile devices and external access
+  - Improved redirect handling after email verification
+  - Enhanced error messages for better user feedback
+
+## [1.2.0] - 2025-06-12
+### Added
+- **Establishment Management**
+  - Added endpoint to create multiple establishments in a single request
+  - Added duplicate check for establishment names
+  - Added proper error handling for duplicate establishments
+
+### Fixed
+- **Authentication**
+  - Fixed refresh token creation to prevent duplicate key errors
+  - Updated token refresh logic to handle existing tokens
+
+### Changed
+- **Security**
+  - Updated WebSecurityConfig to allow ADMIN role access to establishments endpoints
+  - Improved role-based access control for establishment management
+  
+### API Changes
+- Added `POST /api/establishments/list` - Create multiple establishments
+- Updated `POST /api/establishments` - Now properly handles new establishment creation with duplicate name checking
 
 ## [1.1.0] - 2025-06-10
 ### Added

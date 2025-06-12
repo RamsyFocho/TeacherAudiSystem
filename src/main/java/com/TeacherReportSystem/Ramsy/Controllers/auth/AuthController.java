@@ -10,6 +10,7 @@ import com.TeacherReportSystem.Ramsy.Services.auth.RefreshTokenService;
 import com.TeacherReportSystem.Ramsy.Tools.EmailVerification;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +21,14 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.io.IOException;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -58,6 +61,12 @@ public class AuthController {
     
     @Autowired
     private EmailService emailService;
+    
+    @Value("${app.frontend.url:http://localhost:3000}")
+    private String frontendUrl;
+    
+    @Value("${app.backend.url:http://localhost:8080}")
+    private String backendUrl;
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
@@ -146,10 +155,8 @@ public class AuthController {
             // Generate and save verification token
             String token = emailVerification.generateVerificationToken(user);
             
-            // Send verification email
-            String appUrl = request.getScheme() + "://" + request.getServerName() + 
-                         (request.getServerPort() != 80 ? ":" + request.getServerPort() : "");
-            emailVerification.sendVerificationEmail(user, appUrl, token);
+            // Send verification email using the configured backend URL
+            emailVerification.sendVerificationEmail(user, backendUrl, token);
 
             return ResponseEntity.ok(new MessageResponse(
                 String.format("%s registered successfully! Please check your email to verify your account.", 
@@ -163,16 +170,36 @@ public class AuthController {
     }
 
     @GetMapping("/verify")
-    public ResponseEntity<?> verifyUser(@RequestParam("token") String token) {
+    public void verifyUser(
+            @RequestParam("token") String token,
+            @RequestParam(value = "redirect", required = false) String redirectUrl,
+            HttpServletResponse response) throws IOException {
+        
+        String targetUrl = frontendUrl + "/login";
+        
         try {
+            // Find the verification token
             VerificationToken verificationToken = tokenRepository.findByToken(token)
                     .orElseThrow(() -> new RegistrationException("Invalid verification token"));
 
+            // Check if token is expired
             if (verificationToken.getExpiryDate().isBefore(Instant.now())) {
+                // Delete the expired token
                 tokenRepository.delete(verificationToken);
-                throw new RegistrationException("Verification token has expired. Please register again.");
+                
+                // Generate a new token and send verification email
+                String newToken = emailVerification.generateVerificationToken(verificationToken.getUser());
+                emailVerification.sendVerificationEmail(verificationToken.getUser(), backendUrl, newToken);
+                
+                // Redirect with error message
+                targetUrl = String.format("%s?error=token_expired&message=%s",
+                        redirectUrl != null ? redirectUrl : frontendUrl + "/login",
+                        "Verification link expired. A new verification email has been sent.");
+                response.sendRedirect(targetUrl);
+                return;
             }
 
+            // Verify the user
             User user = verificationToken.getUser();
             user.setEnabled(true);
             userRepository.save(user);
@@ -180,11 +207,20 @@ public class AuthController {
             // Delete the verification token after successful verification
             tokenRepository.delete(verificationToken);
 
-            return ResponseEntity.ok(new MessageResponse("Account verified successfully! You can now log in."));
+            // Redirect to success URL with success message
+            targetUrl = String.format("%s?verified=true&message=%s",
+                    redirectUrl != null ? redirectUrl : frontendUrl + "/login",
+                    "Account verified successfully! You can now log in.");
             
         } catch (Exception e) {
-            throw new RegistrationException("Error verifying account: " + e.getMessage());
+            // Redirect to error page with error message
+            targetUrl = String.format("%s?error=verification_failed&message=%s",
+                    redirectUrl != null ? redirectUrl : frontendUrl + "/error",
+                    "Error verifying account: " + e.getMessage());
         }
+        
+        // Perform the actual redirect
+        response.sendRedirect(targetUrl);
     }
     
     @PostMapping("/resend-verification")
@@ -192,27 +228,29 @@ public class AuthController {
                                                     HttpServletRequest request) {
         try {
             User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RegistrationException("User not found with email: " + email));
+                    .orElseThrow(() -> new RegistrationException("No account found with this email address."));
 
             if (user.isEnabled()) {
-                return ResponseEntity.badRequest().body(new MessageResponse("Account is already verified."));
+                return ResponseEntity.ok(new MessageResponse("Your account is already verified. You can now log in."));
             }
 
-            // Delete any existing verification tokens
+            // Delete any existing verification tokens for this user
             tokenRepository.findByUser(user).ifPresent(tokenRepository::delete);
             
             // Generate and save new verification token
             String token = emailVerification.generateVerificationToken(user);
             
-            // Send verification email
-            String appUrl = request.getScheme() + "://" + request.getServerName() + 
-                          (request.getServerPort() != 80 ? ":" + request.getServerPort() : "");
-            emailVerification.sendVerificationEmail(user, appUrl, token);
-            
-            return ResponseEntity.ok(new MessageResponse("Verification email has been resent. Please check your email."));
-            
-        } catch (MessagingException e) {
-            throw new RegistrationException("Failed to resend verification email. Please try again.", e);
+            try {
+                // Send verification email using the configured backend URL
+                emailVerification.sendVerificationEmail(user, backendUrl, token);
+                return ResponseEntity.ok(new MessageResponse("A new verification email has been sent to " + email + ". Please check your inbox and follow the instructions to verify your account."));
+            } catch (MessagingException e) {
+                // If email sending fails, delete the token we just created
+                tokenRepository.findByToken(token).ifPresent(tokenRepository::delete);
+                throw new RegistrationException("Failed to send verification email. Please try again later.", e);
+            }
+        } catch (RegistrationException e) {
+            throw new RuntimeException(e);
         }
     }
 }

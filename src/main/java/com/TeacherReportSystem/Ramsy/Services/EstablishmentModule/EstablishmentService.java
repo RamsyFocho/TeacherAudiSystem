@@ -25,12 +25,13 @@ public class EstablishmentService {
 
     // Example method to create an establishment
      public Establishment createEstablishment(Establishment establishment) {
-         // Logic to save the establishment to the database
-//         check if the establishment already exists
-            if (establishmentRepository.existsById(establishment.getId())) {
-                throw new RuntimeException("Establishment already exists with ID: " + establishment.getId());
-            }
-            return establishmentRepository.save(establishment);
+         // Check if an establishment with the same name already exists
+         if (establishment.getName() != null && 
+             establishmentRepository.existsByName(establishment.getName())) {
+             throw new RuntimeException("Establishment with name '" + establishment.getName() + "' already exists");
+         }
+         // For new establishment, we don't check ID since it will be generated
+         return establishmentRepository.save(establishment);
      }
 //     creating a method which would collect a list of establishments as param and inserting them
         public void createEstablishments(List<Establishment> establishments) {

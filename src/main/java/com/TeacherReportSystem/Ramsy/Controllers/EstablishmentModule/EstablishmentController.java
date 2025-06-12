@@ -4,6 +4,7 @@ import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
 import com.TeacherReportSystem.Ramsy.Services.EstablishmentModule.EstablishmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +29,7 @@ public class EstablishmentController {
 
     // Example endpoint to create a new establishment
      @PostMapping
+     @PreAuthorize("hasRole('ADMIN')")
      public ResponseEntity<Establishment> createEstablishment(@RequestBody Establishment establishment) {
          try {
              return ResponseEntity.ok(establishmentService.createEstablishment(establishment));

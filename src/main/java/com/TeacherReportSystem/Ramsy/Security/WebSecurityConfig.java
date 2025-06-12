@@ -92,12 +92,16 @@ public class WebSecurityConfig {
                             "/api/reports/**"
                         ).authenticated()
                         
-                        // Dashboard and analytics (Director)
+                        // Dashboard and analytics (Director and Admin)
                         .requestMatchers(
                             "/api/analytics/**",
-                                "/api/establishments",
                             "/api/dashboard/**"
                         ).hasRole("DIRECTOR")
+                        
+                        // Establishment management (Admin and Director)
+                        .requestMatchers(
+                            "/api/establishments/**"
+                        ).hasAnyRole("ADMIN", "DIRECTOR")
                         
                         // By default, require authentication
                         .anyRequest().authenticated()

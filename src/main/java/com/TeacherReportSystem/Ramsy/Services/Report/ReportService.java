@@ -5,6 +5,7 @@ import com.TeacherReportSystem.Ramsy.Repositories.Report.ReportInterface;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Service
@@ -69,13 +70,23 @@ public class ReportService {
         }
     }
     //find by date issued
-    public Iterable<Report> findByDateIssued(String dateIssued) {
+    public Iterable<Report> findByDateIssued(Instant dateIssued) {
         try {
             return reportInterface.findByDateIssued(dateIssued);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by date issued: " + e.getMessage());
             return null; // or throw a custom exception
+        }
+    }
+    
+    //find by date range
+    public Iterable<Report> findByDateIssuedBetween(Instant startDate, Instant endDate) {
+        try {
+            return reportInterface.findByDateIssuedBetween(startDate, endDate);
+        } catch (Exception e) {
+            System.err.println("Error finding reports by date range: " + e.getMessage());
+            return null;
         }
     }
     //find by description
@@ -89,7 +100,7 @@ public class ReportService {
         }
     }
     //find by sanction type and date issued
-    public Iterable<Report> findBySanctionTypeAndDateIssued(String sanctionType, String dateIssued) {
+    public Iterable<Report> findBySanctionTypeAndDateIssued(String sanctionType, Instant dateIssued) {
         try {
             return reportInterface.findBySanctionTypeAndDateIssued(sanctionType, dateIssued);
         } catch (Exception e) {

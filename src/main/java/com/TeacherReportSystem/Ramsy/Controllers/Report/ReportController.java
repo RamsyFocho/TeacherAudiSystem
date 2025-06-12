@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -35,7 +36,6 @@ public class ReportController {
         return ResponseEntity.ok(reportService.getAllReports());
     }
 
-    // Get report by ID
     @GetMapping("/{id}")
     public ResponseEntity<Report> getReportById(@PathVariable Long id) {
         Report report = reportService.getReportById(id);
@@ -74,9 +74,18 @@ public class ReportController {
     }
 
     // Find reports by date issued
-    @GetMapping("/date-issued/{dateIssued}")
-    public ResponseEntity<Iterable<Report>> getReportsByDateIssued(@PathVariable String dateIssued) {
+    @GetMapping("/date-issued")
+    public ResponseEntity<Iterable<Report>> getReportsByDateIssued(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant dateIssued) {
         return ResponseEntity.ok(reportService.findByDateIssued(dateIssued));
+    }
+    
+    // Find reports by date range
+    @GetMapping("/date-range")
+    public ResponseEntity<Iterable<Report>> getReportsByDateRange(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate) {
+        return ResponseEntity.ok(reportService.findByDateIssuedBetween(startDate, endDate));
     }
 
     // Search reports by keyword in description
@@ -89,7 +98,7 @@ public class ReportController {
     @GetMapping("/search/sanction-and-date")
     public ResponseEntity<Iterable<Report>> getReportsBySanctionAndDate(
             @RequestParam String sanctionType, 
-            @RequestParam String dateIssued) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant dateIssued) {
         return ResponseEntity.ok(reportService.findBySanctionTypeAndDateIssued(sanctionType, dateIssued));
     }
 

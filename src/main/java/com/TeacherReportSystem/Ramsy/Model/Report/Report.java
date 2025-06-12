@@ -2,55 +2,85 @@ package com.TeacherReportSystem.Ramsy.Model.Report;
 
 import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
 import com.TeacherReportSystem.Ramsy.Model.TeacherModule.Teacher;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.Locale;
 
 @Entity
+@Table(name = "reports")
 @Data
+@NoArgsConstructor
 public class Report {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long reportId;
+    private Long reportId;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "establishment_id", nullable = false)
     private Establishment establishment;
+    
+    @Column(name = "class_name")
     private String className;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacher_id", nullable = false)
     private Teacher teacher;
+    
+    @Column(name = "student_num")
     private long studentNum;
+    
+    @Column(name = "student_present")
     private long studentPresent;
+    
+    @Column(nullable = false)
     private LocalDate date;
-    private LocalTime StartTime;
-    private LocalTime EndTime;
+    
+    @Column(name = "start_time")
+    private LocalTime startTime;
+    
+    @Column(name = "end_time")
+    private LocalTime endTime;
+    
+    @Column(name = "course_title")
     private String courseTitle;
+    
+    @Column(columnDefinition = "TEXT")
     private String observation;
-    //    admin section
+    
+    // Admin section
+    @Column(name = "sanction_type")
     private String sanctionType;
+    
+    @Column(columnDefinition = "TEXT")
     private String description;
+    
+    @Column(name = "date_issued")
     private Instant dateIssued;
 
-    //inspector/director
-    public Report(Establishment establishment, String className, Teacher teacher, long studentNum, long studentPresent, LocalDate date, LocalTime startTime, LocalTime endTime, String courseTitle, String observation) {
+    // Inspector/director constructor
+    public Report(Establishment establishment, String className, Teacher teacher, long studentNum, 
+                 long studentPresent, LocalDate date, LocalTime startTime, LocalTime endTime, 
+                 String courseTitle, String observation) {
         this.establishment = establishment;
         this.className = className;
         this.teacher = teacher;
         this.studentNum = studentNum;
         this.studentPresent = studentPresent;
         this.date = date;
-        StartTime = startTime;
-        EndTime = endTime;
+        this.startTime = startTime;
+        this.endTime = endTime;
         this.courseTitle = courseTitle;
         this.observation = observation;
     }
-//    admin
 
-    public Report(String sanctionType, String description) {
+    // Admin constructor
+    public Report(String sanctionType, String description, Instant dateIssued) {
         this.sanctionType = sanctionType;
         this.description = description;
+        this.dateIssued = dateIssued;
     }
 }
