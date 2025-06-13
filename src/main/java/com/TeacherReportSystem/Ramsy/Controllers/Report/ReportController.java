@@ -25,9 +25,9 @@ public class ReportController {
 
     // Create a new report
     @PostMapping
-    public ResponseEntity<Report> createReport(@RequestBody Report report) {
+    public ResponseEntity<?> createReport(@RequestBody Report report) {
         reportService.addReport(report);
-        return ResponseEntity.ok(report);
+        return ResponseEntity.ok("Report created successfully");
     }
 
     // Get all reports

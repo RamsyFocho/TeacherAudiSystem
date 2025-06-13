@@ -1,24 +1,81 @@
 package com.TeacherReportSystem.Ramsy.Services.Report;
 
+import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
 import com.TeacherReportSystem.Ramsy.Model.Report.Report;
+import com.TeacherReportSystem.Ramsy.Model.TeacherModule.Teacher;
+import com.TeacherReportSystem.Ramsy.Repositories.EstablishmentModule.EstablishmentRepository;
 import com.TeacherReportSystem.Ramsy.Repositories.Report.ReportInterface;
+import com.TeacherReportSystem.Ramsy.Repositories.TeacherModule.TeacherRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ReportService {
     @Autowired
     private ReportInterface reportInterface;
+    @Autowired
+    private EstablishmentRepository establishmentRepository;
+    @Autowired
+    TeacherRepository teacherRepository;
     //add report with proper error handling
-    public void addReport(Report report) {
+    // Update the addReport method
+    public Report addReport(Report report) {
         try {
-            reportInterface.save(report);
+            // Handle Establishment
+            if (report.getEstablishment() != null && report.getEstablishment().getName() != null) {
+                // Try to find existing establishment by name
+                Optional<Establishment> existingEstablishment = establishmentRepository.findByNameIgnoreCase(report.getEstablishment().getName());
+                if (existingEstablishment.isPresent()) {
+                    // Use the first matching establishment
+                    report.setEstablishment(existingEstablishment.get());
+                } else {
+                    // Create new establishment if not found
+                    Establishment newEstablishment = new Establishment();
+                    newEstablishment.setName(report.getEstablishment().getName());
+                    report.setEstablishment(establishmentRepository.save(newEstablishment));
+                }
+            }
+
+            // Handle Teacher
+            if (report.getTeacher() != null &&
+                    report.getTeacher().getFirstName() != null &&
+                    report.getTeacher().getLastName() != null) {
+
+                // Try to find teacher by first and last name
+                String teacherName = report.getTeacher().getFirstName() + " " + report.getTeacher().getLastName();
+                Optional<Teacher> existingTeachers = teacherRepository.findByFirstNameAndLastName(
+                        report.getTeacher().getFirstName(),
+                        report.getTeacher().getLastName());
+
+                if (existingTeachers.isPresent()) {
+                    // Use the first matching teacher
+                    report.setTeacher(existingTeachers.get());
+                } else {
+                    // Create new teacher if not found
+                    Teacher newTeacher = new Teacher();
+                    newTeacher.setFirstName(report.getTeacher().getFirstName());
+                    newTeacher.setLastName(report.getTeacher().getLastName());
+                    // Set other required fields with default values if needed
+                    newTeacher.setEmail(report.getTeacher().getEmail() != null ?
+                            report.getTeacher().getEmail() :
+                            report.getTeacher().getFirstName().toLowerCase() +
+                                    "." + report.getTeacher().getLastName().toLowerCase() +
+                                    "@school.edu");
+                    newTeacher.setTeacherId("T" + System.currentTimeMillis()); // Generate a temporary ID
+                    report.setTeacher(teacherRepository.save(newTeacher));
+                }
+            }
+
+            return reportInterface.save(report);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error saving report: " + e.getMessage());
+            throw new RuntimeException("Failed to save report: " + e.getMessage(), e);
         }
     }
     //get all reports

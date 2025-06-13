@@ -24,4 +24,6 @@ public interface EstablishmentRepository extends JpaRepository<Establishment, Lo
      
      // Check if an establishment with the given name exists
      boolean existsByName(String name);
+
+     Optional<Establishment> findByNameIgnoreCase(String name);
 }
