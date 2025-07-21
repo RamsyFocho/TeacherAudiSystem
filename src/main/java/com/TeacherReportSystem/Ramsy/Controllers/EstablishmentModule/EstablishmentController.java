@@ -30,7 +30,7 @@ public class EstablishmentController {
 
     // Example endpoint to create a new establishment
      @PostMapping
-//     @PreAuthorize("hasRole('ADMIN')")
+     @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
      public ResponseEntity<Establishment> createEstablishment(@RequestBody Establishment establishment) {
 //         try {
              return ResponseEntity.status(HttpStatus.CREATED).body(establishmentService.createEstablishment(establishment));
@@ -51,6 +51,8 @@ public class EstablishmentController {
     }
     // --- NEW: Endpoint to update an existing establishment ---
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+
     public ResponseEntity<Establishment> updateEstablishment(@PathVariable Long id, @RequestBody Establishment establishmentDetails) {
         Establishment updatedEstablishment = establishmentService.updateEstablishment(id, establishmentDetails);
         return ResponseEntity.ok(updatedEstablishment);

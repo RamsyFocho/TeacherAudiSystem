@@ -77,10 +77,10 @@ public class WebSecurityConfig {
                             "/api/users/**"
                         ).hasRole("ADMIN")
                         
-                        // Teacher management (Admin + Inspector)
+                        // Teacher management (Admin + director)
                         .requestMatchers(
                             "/api/teachers/**"
-                        ).hasAnyRole("ADMIN","DIRECTOR")
+                        ).hasAnyRole("ADMIN","DIRECTOR","INSPECTOR")
                         
                         // Inspection endpoints (Inspector + Director)
                         .requestMatchers(
@@ -96,12 +96,12 @@ public class WebSecurityConfig {
                         .requestMatchers(
                             "/api/analytics/**",
                             "/api/dashboard/**"
-                        ).hasAnyRole("ADMIN","DIRECTOR")
+                        ).hasAnyRole("ADMIN","DIRECTOR","INSPECTOR")
                         
                         // Establishment management (Admin and Director)
                         .requestMatchers(
                             "/api/establishments/**"
-                        ).hasAnyRole("ADMIN", "DIRECTOR")
+                        ).hasAnyRole("ADMIN", "DIRECTOR","INSPECTOR")
                         
                         // By default, require authentication
                         .anyRequest().authenticated()
@@ -115,7 +115,7 @@ public class WebSecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:3000","http://localhost:9002","https://6000-firebase-studio-1752791964287.cluster-jbb3mjctu5cbgsi6hwq6u4btwe.cloudworkstations.dev","https://preview--edu-inspect-dc4ada87.base44.app")); // ✅ Correct way
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:3000","http://localhost:9002","https://6000-firebase-studio-1752791964287.cluster-jbb3mjctu5cbgsi6hwq6u4btwe.cloudworkstations.dev","https://preview--edu-inspect-dc4ada87.base44.app","http://192.168.96.7")); // ✅ Correct way
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

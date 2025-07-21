@@ -1,5 +1,6 @@
 package com.TeacherReportSystem.Ramsy.Controllers.Report;
 
+import com.TeacherReportSystem.Ramsy.DTO.ReportDto;
 import com.TeacherReportSystem.Ramsy.Model.Report.Report;
 import com.TeacherReportSystem.Ramsy.Services.Report.ReportService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,8 +33,8 @@ public class ReportController {
 
     // Get all reports
     @GetMapping
-    public ResponseEntity<Iterable<Report>> getAllReports() {
-        return ResponseEntity.ok(reportService.getAllReports());
+    public ResponseEntity<Iterable<ReportDto>> getAllReports() {
+        return ResponseEntity.ok(reportService.getAllReportsAsDto());
     }
 
     @GetMapping("/{id}")

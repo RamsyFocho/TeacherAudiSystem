@@ -1,10 +1,11 @@
 package com.TeacherReportSystem.Ramsy.Services.Report;
 
+import com.TeacherReportSystem.Ramsy.DTO.ReportDto;
 import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
 import com.TeacherReportSystem.Ramsy.Model.Report.Report;
 import com.TeacherReportSystem.Ramsy.Model.TeacherModule.Teacher;
 import com.TeacherReportSystem.Ramsy.Repositories.EstablishmentModule.EstablishmentRepository;
-import com.TeacherReportSystem.Ramsy.Repositories.Report.ReportInterface;
+import com.TeacherReportSystem.Ramsy.Repositories.Report.ReportRepository;
 import com.TeacherReportSystem.Ramsy.Repositories.TeacherModule.TeacherRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,11 +14,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class ReportService {
     @Autowired
-    private ReportInterface reportInterface;
+    private ReportRepository reportRepository;
     @Autowired
     private EstablishmentRepository establishmentRepository;
     @Autowired
@@ -71,7 +73,7 @@ public class ReportService {
                 }
             }
 
-            return reportInterface.save(report);
+            return reportRepository.save(report);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error saving report: " + e.getMessage());
@@ -79,19 +81,51 @@ public class ReportService {
         }
     }
     //get all reports
-    public Iterable<Report> getAllReports() {
-        try {
-            return reportInterface.findAll();
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error retrieving reports: " + e.getMessage());
-            return null; // or throw a custom exception
+//    public Iterable<Report> getAllReports() {
+//        try {
+//            return reportRepository.findAll();
+//        } catch (Exception e) {
+//            // Handle the exception, log it, or rethrow it as needed
+//            System.err.println("Error retrieving reports: " + e.getMessage());
+//            return null; // or throw a custom exception
+//        }
+//    }
+    // In your ReportService or wherever you fetch the reports
+
+    public List<ReportDto> getAllReportsAsDto() {
+        List<Report> reports = reportRepository.findAll(); // Your method to get reports
+        return reports.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    private ReportDto convertToDto(Report report) {
+        ReportDto dto = new ReportDto();
+        dto.setReportId(report.getReportId());
+        dto.setClassName(report.getClassName());
+        dto.setStudentNum(report.getStudentNum());
+        dto.setStudentPresent(report.getStudentPresent());
+        dto.setDate(report.getDate());
+        dto.setStartTime(report.getStartTime());
+        dto.setEndTime(report.getEndTime());
+        dto.setCourseTitle(report.getCourseTitle());
+        dto.setObservation(report.getObservation());
+        dto.setSanctionType(report.getSanctionType());
+
+        // This safely accesses the lazy-loaded fields within the active transaction
+        if (report.getEstablishment() != null) {
+            dto.setEstablishmentName(report.getEstablishment().getName());
         }
+        if (report.getTeacher() != null) {
+            dto.setTeacherFullName(report.getTeacher().getFullName());
+        }
+
+        return dto;
     }
     //get report by id
     public Report getReportById(Long id) {
         try {
-            return reportInterface.findById(id).orElse(null);
+            return reportRepository.findById(id).orElse(null);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error retrieving report by ID: " + e.getMessage());
@@ -101,7 +135,7 @@ public class ReportService {
     //delete report by id
     public void deleteReportById(Long id) {
         try {
-            reportInterface.deleteById(id);
+            reportRepository.deleteById(id);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error deleting report by ID: " + e.getMessage());
@@ -110,7 +144,7 @@ public class ReportService {
     //update report
     public void updateReport(Report report) {
         try {
-            reportInterface.save(report);
+            reportRepository.save(report);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error updating report: " + e.getMessage());
@@ -119,7 +153,7 @@ public class ReportService {
     //find by sanction type
     public Iterable<Report> findBySanctionType(String sanctionType) {
         try {
-            return reportInterface.findBySanctionType(sanctionType);
+            return reportRepository.findBySanctionType(sanctionType);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by sanction type: " + e.getMessage());
@@ -129,7 +163,7 @@ public class ReportService {
     //find by date issued
     public Iterable<Report> findByDateIssued(Instant dateIssued) {
         try {
-            return reportInterface.findByDateIssued(dateIssued);
+            return reportRepository.findByDateIssued(dateIssued);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by date issued: " + e.getMessage());
@@ -140,7 +174,7 @@ public class ReportService {
     //find by date range
     public Iterable<Report> findByDateIssuedBetween(Instant startDate, Instant endDate) {
         try {
-            return reportInterface.findByDateIssuedBetween(startDate, endDate);
+            return reportRepository.findByDateIssuedBetween(startDate, endDate);
         } catch (Exception e) {
             System.err.println("Error finding reports by date range: " + e.getMessage());
             return null;
@@ -149,7 +183,7 @@ public class ReportService {
     //find by description
     public Iterable<Report> findByDescriptionContaining(String keyword) {
         try {
-            return reportInterface.findByDescriptionContaining(keyword);
+            return reportRepository.findByDescriptionContaining(keyword);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by description: " + e.getMessage());
@@ -159,7 +193,7 @@ public class ReportService {
     //find by sanction type and date issued
     public Iterable<Report> findBySanctionTypeAndDateIssued(String sanctionType, Instant dateIssued) {
         try {
-            return reportInterface.findBySanctionTypeAndDateIssued(sanctionType, dateIssued);
+            return reportRepository.findBySanctionTypeAndDateIssued(sanctionType, dateIssued);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by sanction type and date issued: " + e.getMessage());
@@ -169,7 +203,7 @@ public class ReportService {
     //find by sanction type or description
     public Iterable<Report> findBySanctionTypeOrDescription(String sanctionType, String description) {
         try {
-            return reportInterface.findBySanctionTypeOrDescription(sanctionType, description);
+            return reportRepository.findBySanctionTypeOrDescription(sanctionType, description);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by sanction type or description: " + e.getMessage());
@@ -179,7 +213,7 @@ public class ReportService {
     //find by teacher's name
     public Iterable<Report> findByTeacherNameContainingIgnoreCase(String teacherName) {
         try {
-            return reportInterface.findByTeacherNameContainingIgnoreCase(teacherName);
+            return reportRepository.findByTeacherNameContainingIgnoreCase(teacherName);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by teacher's name: " + e.getMessage());
@@ -189,7 +223,7 @@ public class ReportService {
     //find by establishment's name
     public Iterable<Report> findByEstablishmentNameContainingIgnoreCase(String establishmentName) {
         try {
-            return reportInterface.findByEstablishmentNameContainingIgnoreCase(establishmentName);
+            return reportRepository.findByEstablishmentNameContainingIgnoreCase(establishmentName);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by establishment's name: " + e.getMessage());
@@ -199,7 +233,7 @@ public class ReportService {
     //find by class name
     public Iterable<Report> findByClassNameContainingIgnoreCase(String className) {
         try {
-            return reportInterface.findByClassNameContainingIgnoreCase(className);
+            return reportRepository.findByClassNameContainingIgnoreCase(className);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by class name: " + e.getMessage());
@@ -209,7 +243,7 @@ public class ReportService {
     //find by course title
     public Iterable<Report> findByCourseTitleContainingIgnoreCase(String courseTitle) {
         try {
-            return reportInterface.findByCourseTitleContainingIgnoreCase(courseTitle);
+            return reportRepository.findByCourseTitleContainingIgnoreCase(courseTitle);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by course title: " + e.getMessage());
@@ -219,7 +253,7 @@ public class ReportService {
     //find by date
     public Iterable<Report> findByDate(LocalDate date) {
         try {
-            return reportInterface.findByDate(date);
+            return reportRepository.findByDate(date);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by date: " + e.getMessage());
@@ -229,7 +263,7 @@ public class ReportService {
     //find by year from the date
     public Iterable<Report> findByDateYear(int year) {
         try {
-            return reportInterface.findByDateYear(year);
+            return reportRepository.findByDateYear(year);
         } catch (Exception e) {
             // Handle the exception, log it, or rethrow it as needed
             System.err.println("Error finding reports by year: " + e.getMessage());

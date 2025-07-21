@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Repository
-public interface ReportInterface extends JpaRepository<Report, Long> {
+public interface ReportRepository extends JpaRepository<Report, Long> {
     
     // Find reports by sanction type
     List<Report> findBySanctionType(String sanctionType);
@@ -51,4 +51,20 @@ public interface ReportInterface extends JpaRepository<Report, Long> {
     // Find by year from the date
     @Query("SELECT r FROM Report r WHERE YEAR(r.date) = :year")
     List<Report> findByDateYear(@Param("year") int year);
+
+    @Query("SELECT e.name, COUNT(r) FROM Report r JOIN r.establishment e GROUP BY e.name")
+    List<Object[]> countReportsByEstablishment();
+
+    @Query("SELECT CONCAT(t.firstName, ' ', t.lastName), COUNT(r) FROM Report r JOIN r.teacher t GROUP BY t.firstName, t.lastName")
+    List<Object[]> countReportsByTeacher();
+
+    @Query("SELECT SUM(r.studentNum), SUM(r.studentPresent) FROM Report r")
+    Object[] getAttendanceSummary();
+
+    @Query("SELECT r FROM Report r ORDER BY r.dateIssued DESC LIMIT 5")
+    List<Report> findLatestReports();
+
+    @Query("SELECT r FROM Report r WHERE r.sanctionType IS NOT NULL")
+    List<Report> findReportsWithSanctions();
+
 }

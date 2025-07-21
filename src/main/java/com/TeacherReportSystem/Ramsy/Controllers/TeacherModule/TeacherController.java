@@ -19,7 +19,7 @@ public class TeacherController {
     TeacherService teacherService;
 
     @PostMapping("/upload")
-//    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<?> uploadTeacherData(@RequestParam("file") MultipartFile file) {
         try {
             teacherService.uploadTeachersFromExcel(file);
@@ -38,6 +38,7 @@ public class TeacherController {
         }
     }
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<?> updateTeacher(@PathVariable Long id, @RequestBody Teacher teacherDetails) {
         try {
             Teacher updatedTeacher = teacherService.updateTeacher(id, teacherDetails);
