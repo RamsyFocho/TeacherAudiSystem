@@ -58,4 +58,31 @@ public class TeacherService {
         return cell != null ? cell.toString().trim() : "";
     }
 
+    public List<Teacher> getAllTeachers() {
+        // This method retrieves all teachers from the repository
+        List<Teacher> teachers = teacherRepo.findAll();
+        if (teachers.isEmpty()) {
+            throw new RuntimeException("No teachers found");
+        }
+        return teachers;
+    }
+
+    public Teacher updateTeacher(Long id, Teacher teacherDetails) {
+        // 1. Find the existing teacher by its ID
+        Teacher existingTeacher = teacherRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Teacher not found with id: " + id));
+
+        // 2. Update the properties of the existing object with the new details
+        existingTeacher.setFirstName(teacherDetails.getFirstName());
+        existingTeacher.setLastName(teacherDetails.getLastName());
+        existingTeacher.setEmail(teacherDetails.getEmail());
+        existingTeacher.setPhone(teacherDetails.getPhone());
+        existingTeacher.setGender(teacherDetails.getGender());
+        // Note: You generally wouldn't update the list of reports directly this way.
+        // That would typically be handled through the Report service.
+        // Here we only update the simple properties of the Teacher itself.
+
+        // 3. Save the updated object back to the database
+        return teacherRepo.save(existingTeacher);
+    }
 }

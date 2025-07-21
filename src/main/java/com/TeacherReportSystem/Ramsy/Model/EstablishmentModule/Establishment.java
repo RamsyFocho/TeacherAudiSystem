@@ -1,6 +1,7 @@
 package com.TeacherReportSystem.Ramsy.Model.EstablishmentModule;
 
 import com.TeacherReportSystem.Ramsy.Model.Report.Report;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,8 +20,10 @@ public class Establishment {
     
     @Column(nullable = false, unique = true)
     private String name;
-    
+
     @OneToMany(mappedBy = "establishment", cascade = CascadeType.ALL, orphanRemoval = true)
+    // --- CHANGE 1: Give this relationship a unique name ---
+    @JsonManagedReference("establishment-report")
     private List<Report> reports = new ArrayList<>();
     
     public Establishment(String name) {

@@ -80,7 +80,7 @@ public class WebSecurityConfig {
                         // Teacher management (Admin + Inspector)
                         .requestMatchers(
                             "/api/teachers/**"
-                        ).hasAnyRole("ADMIN", "INSPECTOR")
+                        ).hasAnyRole("ADMIN","DIRECTOR")
                         
                         // Inspection endpoints (Inspector + Director)
                         .requestMatchers(
@@ -96,7 +96,7 @@ public class WebSecurityConfig {
                         .requestMatchers(
                             "/api/analytics/**",
                             "/api/dashboard/**"
-                        ).hasRole("DIRECTOR")
+                        ).hasAnyRole("ADMIN","DIRECTOR")
                         
                         // Establishment management (Admin and Director)
                         .requestMatchers(
@@ -115,16 +115,15 @@ public class WebSecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*"));
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:3000","http://localhost:9002","https://6000-firebase-studio-1752791964287.cluster-jbb3mjctu5cbgsi6hwq6u4btwe.cloudworkstations.dev","https://preview--edu-inspect-dc4ada87.base44.app")); // ✅ Correct way
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
-        
-        // Add exposed headers if you're using custom headers in the frontend
         configuration.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
 }

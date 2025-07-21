@@ -2,6 +2,7 @@ package com.TeacherReportSystem.Ramsy.Model.Report;
 
 import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
 import com.TeacherReportSystem.Ramsy.Model.TeacherModule.Teacher;
+import com.fasterxml.jackson.annotation.*;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,16 +19,20 @@ public class Report {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long reportId;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "establishment_id", nullable = false)
+    // --- CHANGE 3: Use the name from the Establishment class ---
+    @JsonBackReference("establishment-report")
     private Establishment establishment;
     
     @Column(name = "class_name")
     private String className;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "teacher_id", nullable = false)
+    // --- CHANGE 4: Use the name from the Teacher class ---
+    @JsonBackReference("teacher-report")
     private Teacher teacher;
     
     @Column(name = "student_num")

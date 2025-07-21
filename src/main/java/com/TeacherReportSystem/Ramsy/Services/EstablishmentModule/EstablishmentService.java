@@ -1,5 +1,7 @@
 package com.TeacherReportSystem.Ramsy.Services.EstablishmentModule;
 
+import com.TeacherReportSystem.Ramsy.Exception.AlreadyExistsException;
+import com.TeacherReportSystem.Ramsy.Exception.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
@@ -19,8 +21,26 @@ public class EstablishmentService {
      }
 
      // Example method to update an establishment
-     public Establishment updateEstablishment(Establishment establishment) {
-         return establishmentRepository.save(establishment);
+//     public Establishment updateEstablishment(Establishment establishment) {
+//         return establishmentRepository.save(establishment);
+//     }
+     public Establishment updateEstablishment(Long id, Establishment establishmentDetails) {
+         // 1. Find the existing establishment by its ID
+         Establishment existingEstablishment = establishmentRepository.findById(id)
+                 .orElseThrow(() -> new ResourceNotFoundException("Establishment not found with id: " + id));
+         Establishment establishmentByName = establishmentRepository.findByName(establishmentDetails.getName());
+            // Check if the name already exists for a different establishment
+         if (establishmentByName != null && !establishmentByName.getId().equals(id)) {
+             throw new AlreadyExistsException("Establishment with name '" + establishmentDetails.getName() + "' already exists");
+         }
+         // 2. Update the properties of the existing object with the new details
+         existingEstablishment.setName(establishmentDetails.getName());
+         // Note: You generally wouldn't update the list of reports directly this way.
+         // That would typically be handled through the Report service.
+         // Here we only update the simple properties of the Establishment itself.
+
+         // 3. Save the updated object back to the database
+         return establishmentRepository.save(existingEstablishment);
      }
 
     // Example method to create an establishment
@@ -28,7 +48,7 @@ public class EstablishmentService {
          // Check if an establishment with the same name already exists
          if (establishment.getName() != null && 
              establishmentRepository.existsByName(establishment.getName())) {
-             throw new RuntimeException("Establishment with name '" + establishment.getName() + "' already exists");
+             throw new AlreadyExistsException("Establishment with name '" + establishment.getName() + "' already exists");
          }
          // For new establishment, we don't check ID since it will be generated
          return establishmentRepository.save(establishment);

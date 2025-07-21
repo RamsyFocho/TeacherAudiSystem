@@ -3,7 +3,7 @@ package com.TeacherReportSystem.Ramsy.Model.TeacherModule;
 import com.TeacherReportSystem.Ramsy.Model.Report.Report;
 import jakarta.persistence.*;
 import lombok.*;
-
+import com.fasterxml.jackson.annotation.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,11 +36,20 @@ public class Teacher {
     private String gender;
     
     @OneToMany(mappedBy = "teacher", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("teacher-report")
     private List<Report> reports = new ArrayList<>();
 
     public Teacher(String firstName, String lastName) {
         this.firstName = firstName;
         this.lastName = lastName;
+    }
+
+    public Teacher(String firstName, String lastName, String email, String phone, String gender) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+        this.phone = phone;
+        this.gender = gender;
     }
 
     // Helper methods for bidirectional relationship

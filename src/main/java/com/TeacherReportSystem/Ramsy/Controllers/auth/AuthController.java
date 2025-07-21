@@ -22,6 +22,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
+
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -62,11 +64,12 @@ public class AuthController {
     @Autowired
     private EmailService emailService;
     
-    @Value("${app.frontend.url:http://localhost:3000}")
+    @Value("${app.frontend.url:http://localhost:9002}")
     private String frontendUrl;
     
     @Value("${app.backend.url:http://localhost:8080}")
     private String backendUrl;
+
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
@@ -196,7 +199,7 @@ public class AuthController {
                         redirectUrl != null ? redirectUrl : frontendUrl + "/login",
                         "Verification link expired. A new verification email has been sent.");
                 response.sendRedirect(targetUrl);
-                return;
+                return; 
             }
 
             // Verify the user
@@ -253,4 +256,80 @@ public class AuthController {
             throw new RuntimeException(e);
         }
     }
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal().equals("anonymousUser")) {
+            return ResponseEntity.status(401).body(new MessageResponse("Unauthorized: No user is currently authenticated."));
+        }
+
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        User user = userRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Extract roles as strings
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
+        // Build response
+        CurrentUserResponse response = new CurrentUserResponse(
+                user.getUsername(),
+                user.getEmail(),
+                user.isEnabled(),
+                roles
+        );
+
+        return ResponseEntity.ok(response);
+    }
+    @PutMapping("/update/profile")
+    public ResponseEntity<?> updateProfile(@Valid @RequestBody UpdateProfileRequest updateRequest) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        User user = userRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Update user details
+        if (StringUtils.hasText(updateRequest.getUsername())) {
+            user.setUsername(updateRequest.getUsername());
+        }
+        if (StringUtils.hasText(updateRequest.getEmail())) {
+            if (userRepository.existsByEmail(updateRequest.getEmail()) &&
+                    !updateRequest.getEmail().equals(user.getEmail())) {
+                throw new RegistrationException("Email is already in use!");
+            }
+            user.setEmail(updateRequest.getEmail());
+        }
+        if (StringUtils.hasText(updateRequest.getPhoneNumber())) {
+            user.setPhoneNumber(updateRequest.getPhoneNumber());
+        }
+        if (StringUtils.hasText(updateRequest.getAddress())) {
+            user.setAddress(updateRequest.getAddress());
+        }
+        if (StringUtils.hasText(updateRequest.getPassword())) {
+            user.setPassword(encoder.encode(updateRequest.getPassword()));
+        }
+
+        // Save updated user
+        user = userRepository.save(user);
+
+        // Extract roles as list of ERole
+        List<ERole> roles = user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toList());
+
+        // Build response
+        UpdateProfileResponse response = new UpdateProfileResponse(
+                user.getUsername(),
+                user.getEmail(),
+                user.getPhoneNumber(),
+                user.getAddress(),
+                roles
+        );
+        return ResponseEntity.ok(response);
+    }
+
+
 }

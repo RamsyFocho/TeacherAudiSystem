@@ -3,6 +3,7 @@ package com.TeacherReportSystem.Ramsy.Controllers.EstablishmentModule;
 import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
 import com.TeacherReportSystem.Ramsy.Services.EstablishmentModule.EstablishmentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -29,13 +30,13 @@ public class EstablishmentController {
 
     // Example endpoint to create a new establishment
      @PostMapping
-     @PreAuthorize("hasRole('ADMIN')")
+//     @PreAuthorize("hasRole('ADMIN')")
      public ResponseEntity<Establishment> createEstablishment(@RequestBody Establishment establishment) {
-         try {
-             return ResponseEntity.ok(establishmentService.createEstablishment(establishment));
-         } catch (Exception e) {
-             throw new RuntimeException(e);
-         }
+//         try {
+             return ResponseEntity.status(HttpStatus.CREATED).body(establishmentService.createEstablishment(establishment));
+//         } catch (Exception e) {
+//             throw new RuntimeException(e);
+//         }
      }
 //     insert a list of establishments
     @PostMapping("/list")
@@ -47,5 +48,11 @@ public class EstablishmentController {
         } catch (Exception e) {
             throw new RuntimeException("Error creating establishments: " + e.getMessage());
         }
+    }
+    // --- NEW: Endpoint to update an existing establishment ---
+    @PutMapping("/{id}")
+    public ResponseEntity<Establishment> updateEstablishment(@PathVariable Long id, @RequestBody Establishment establishmentDetails) {
+        Establishment updatedEstablishment = establishmentService.updateEstablishment(id, establishmentDetails);
+        return ResponseEntity.ok(updatedEstablishment);
     }
 }
