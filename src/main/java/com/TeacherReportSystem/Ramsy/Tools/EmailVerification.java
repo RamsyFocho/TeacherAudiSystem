@@ -5,6 +5,7 @@ import com.TeacherReportSystem.Ramsy.Model.Auth.User;
 import com.TeacherReportSystem.Ramsy.Model.Auth.VerificationToken;
 import com.TeacherReportSystem.Ramsy.Repositories.auth.VerificationTokenRepository;
 import com.TeacherReportSystem.Ramsy.Services.auth.EmailService;
+import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -74,24 +75,24 @@ public class EmailVerification {
      * @param token The verification token
      * @throws jakarta.mail.MessagingException If there's an error sending the email
      */
-    public void sendVerificationEmail(User user, String appUrl, String token) throws jakarta.mail.MessagingException {
-        // Build the verification URL that points to the backend
-        String verificationUrl = String.format("%s/api/auth/verify?token=%s&redirect=%s", 
+    public void sendVerificationEmail(User user, String appUrl, String token) throws MessagingException {
+        // Build the verification URL
+        String verificationUrl = String.format("%s/api/auth/verify?token=%s&redirect=%s",
                 backendUrl.endsWith("/") ? backendUrl.substring(0, backendUrl.length() - 1) : backendUrl,
                 token,
                 frontendUrl + "/login");
-        
+
         String subject = "Verify your email address";
-        
-        // Load email template
-        String content = buildVerificationEmail(
-            user.getUsername(),
-            verificationUrl,
-            tokenExpirationHours
+
+        // Build HTML email content
+        String htmlContent = buildVerificationEmail(
+                user.getUsername(),
+                verificationUrl,
+                tokenExpirationHours
         );
-        
-        // Send the email
-        emailService.sendEmail(user.getEmail(), subject, content);
+
+        // Send as HTML email
+        emailService.sendHtmlEmail(user.getEmail(), subject, htmlContent);
     }
     
     /**

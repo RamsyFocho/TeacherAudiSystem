@@ -1,12 +1,15 @@
 package com.TeacherReportSystem.Ramsy.Services.Report;
 
 import com.TeacherReportSystem.Ramsy.DTO.ReportDto;
+import com.TeacherReportSystem.Ramsy.Exception.ResourceNotFoundException;
+import com.TeacherReportSystem.Ramsy.Model.Auth.User;
 import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
 import com.TeacherReportSystem.Ramsy.Model.Report.Report;
 import com.TeacherReportSystem.Ramsy.Model.TeacherModule.Teacher;
 import com.TeacherReportSystem.Ramsy.Repositories.EstablishmentModule.EstablishmentRepository;
 import com.TeacherReportSystem.Ramsy.Repositories.Report.ReportRepository;
 import com.TeacherReportSystem.Ramsy.Repositories.TeacherModule.TeacherRepository;
+import com.TeacherReportSystem.Ramsy.Repositories.auth.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +27,8 @@ public class ReportService {
     private EstablishmentRepository establishmentRepository;
     @Autowired
     TeacherRepository teacherRepository;
+    @Autowired
+    private UserRepository userRepository;
     //add report with proper error handling
     // Update the addReport method
     public Report addReport(Report report) {
@@ -43,6 +48,18 @@ public class ReportService {
                 }
             }
 
+            //Handle User
+            if(report.getUser() != null && report.getUser().getEmail() != null){
+                //try to find user by email
+                Optional<User> userOptional = userRepository.findByEmail(report.getUser().getEmail());
+                if(userOptional.isPresent()){
+                    User user = userOptional.get();
+                    report.setUser(user);
+                }else{
+                    throw new ResourceNotFoundException("User not found");
+                }
+            }
+
             // Handle Teacher
             if (report.getTeacher() != null &&
                     report.getTeacher().getFirstName() != null &&
@@ -59,17 +76,17 @@ public class ReportService {
                     report.setTeacher(existingTeachers.get());
                 } else {
                     // Create new teacher if not found
-                    Teacher newTeacher = new Teacher();
-                    newTeacher.setFirstName(report.getTeacher().getFirstName());
-                    newTeacher.setLastName(report.getTeacher().getLastName());
-                    // Set other required fields with default values if needed
-                    newTeacher.setEmail(report.getTeacher().getEmail() != null ?
-                            report.getTeacher().getEmail() :
-                            report.getTeacher().getFirstName().toLowerCase() +
-                                    "." + report.getTeacher().getLastName().toLowerCase() +
-                                    "@school.edu");
-                    newTeacher.setTeacherId("T" + System.currentTimeMillis()); // Generate a temporary ID
-                    report.setTeacher(teacherRepository.save(newTeacher));
+//                    Teacher newTeacher = new Teacher();
+//                    newTeacher.setFirstName(report.getTeacher().getFirstName());
+//                    newTeacher.setLastName(report.getTeacher().getLastName());
+//                    // Set other required fields with default values if needed
+//                    newTeacher.setEmail(report.getTeacher().getEmail() != null ?
+//                            report.getTeacher().getEmail() :
+//                            report.getTeacher().getFirstName().toLowerCase() +
+//                                    "." + report.getTeacher().getLastName().toLowerCase() +
+//                                    "@school.edu");
+//                    newTeacher.setTeacherId("T" + System.currentTimeMillis()); // Generate a temporary ID
+//                    report.setTeacher(teacherRepository.save(newTeacher));
                 }
             }
 
@@ -118,6 +135,11 @@ public class ReportService {
         }
         if (report.getTeacher() != null) {
             dto.setTeacherFullName(report.getTeacher().getFullName());
+        }
+        if(report.getUser() != null){
+            dto.setEmail(report.getUser().getEmail());
+            dto.setPhoneNumber(report.getUser().getPhoneNumber());
+            dto.setRole(report.getUser().getRoles());
         }
 
         return dto;

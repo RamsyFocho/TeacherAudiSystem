@@ -115,6 +115,8 @@ public class AuthController {
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest, 
                                         HttpServletRequest request) {
         try {
+            //view the role
+            System.out.println(registerRequest.getRole());
             // Check if email already exists
             if (userRepository.existsByEmail(registerRequest.getEmail())) {
                 throw new RegistrationException("Email is already in use!");

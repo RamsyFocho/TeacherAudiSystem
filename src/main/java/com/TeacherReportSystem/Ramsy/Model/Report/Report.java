@@ -1,5 +1,6 @@
 package com.TeacherReportSystem.Ramsy.Model.Report;
 
+import com.TeacherReportSystem.Ramsy.Model.Auth.User;
 import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
 import com.TeacherReportSystem.Ramsy.Model.TeacherModule.Teacher;
 import com.fasterxml.jackson.annotation.*;
@@ -25,7 +26,7 @@ public class Report {
     // --- CHANGE 3: Use the name from the Establishment class ---
     @JsonBackReference("establishment-report")
     private Establishment establishment;
-    
+
     @Column(name = "class_name")
     private String className;
 
@@ -34,6 +35,11 @@ public class Report {
     // --- CHANGE 4: Use the name from the Teacher class ---
     @JsonBackReference("teacher-report")
     private Teacher teacher;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id", nullable = false)
+    @JsonBackReference("user-report")
+    private User user;
     
     @Column(name = "student_num")
     private long studentNum;
@@ -69,7 +75,7 @@ public class Report {
     // Inspector/director constructor
     public Report(Establishment establishment, String className, Teacher teacher, long studentNum, 
                  long studentPresent, LocalDate date, LocalTime startTime, LocalTime endTime, 
-                 String courseTitle, String observation) {
+                 String courseTitle, String observation, User user) {
         this.establishment = establishment;
         this.className = className;
         this.teacher = teacher;
@@ -80,6 +86,7 @@ public class Report {
         this.endTime = endTime;
         this.courseTitle = courseTitle;
         this.observation = observation;
+        this.user = user;
     }
 
     // Admin constructor
