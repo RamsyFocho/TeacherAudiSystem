@@ -64,7 +64,7 @@ public class AuthController {
     @Autowired
     private EmailService emailService;
     
-    @Value("${app.frontend.url:http://localhost:9002}")
+    @Value("${app.frontend.url:http://localhost:9001}")
     private String frontendUrl;
     
     @Value("${app.backend.url:http://localhost:8080}")

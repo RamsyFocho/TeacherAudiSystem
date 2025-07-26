@@ -1,6 +1,7 @@
 package com.TeacherReportSystem.Ramsy.Services.Report;
 
-import com.TeacherReportSystem.Ramsy.DTO.ReportDto;
+import com.TeacherReportSystem.Ramsy.DTO.ReportRequestDto;
+import com.TeacherReportSystem.Ramsy.DTO.ReportResponseDto;
 import com.TeacherReportSystem.Ramsy.Exception.ResourceNotFoundException;
 import com.TeacherReportSystem.Ramsy.Model.Auth.User;
 import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
@@ -31,70 +32,54 @@ public class ReportService {
     private UserRepository userRepository;
     //add report with proper error handling
     // Update the addReport method
-    public Report addReport(Report report) {
+    public Report addReport(ReportRequestDto reportDTO) throws Exception {
         try {
-            // Handle Establishment
-            if (report.getEstablishment() != null && report.getEstablishment().getName() != null) {
-                // Try to find existing establishment by name
-                Optional<Establishment> existingEstablishment = establishmentRepository.findByNameIgnoreCase(report.getEstablishment().getName());
-                if (existingEstablishment.isPresent()) {
-                    // Use the first matching establishment
-                    report.setEstablishment(existingEstablishment.get());
-                } else {
-                    // Create new establishment if not found
-                    Establishment newEstablishment = new Establishment();
-                    newEstablishment.setName(report.getEstablishment().getName());
-                    report.setEstablishment(establishmentRepository.save(newEstablishment));
-                }
-            }
+            // Find or create user
+            User user = userRepository.findByEmail(reportDTO.getUserEmail())
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + reportDTO.getUserEmail()));
 
-            //Handle User
-            if(report.getUser() != null && report.getUser().getEmail() != null){
-                //try to find user by email
-                Optional<User> userOptional = userRepository.findByEmail(report.getUser().getEmail());
-                if(userOptional.isPresent()){
-                    User user = userOptional.get();
-                    report.setUser(user);
-                }else{
-                    throw new ResourceNotFoundException("User not found");
-                }
-            }
+            // Find or create establishment
+            Establishment establishment = establishmentRepository.findByNameIgnoreCase(reportDTO.getEstablishmentName())
+                    .orElseGet(() -> {
+                        Establishment newEstablishment = new Establishment();
+                        newEstablishment.setName(reportDTO.getEstablishmentName());
+                        return establishmentRepository.save(newEstablishment);
+                    });
 
-            // Handle Teacher
-            if (report.getTeacher() != null &&
-                    report.getTeacher().getFirstName() != null &&
-                    report.getTeacher().getLastName() != null) {
+            // Find or create teacher
+            Teacher teacher = teacherRepository.findByFirstNameAndLastName(
+                            reportDTO.getTeacherFirstName(),
+                            reportDTO.getTeacherLastName())
+                    .orElseGet(() -> {
+                        Teacher newTeacher = new Teacher();
+                        newTeacher.setFirstName(reportDTO.getTeacherFirstName());
+                        newTeacher.setLastName(reportDTO.getTeacherLastName());
+                        newTeacher.setEmail(reportDTO.getTeacherEmail() != null ?
+                                reportDTO.getTeacherEmail() :
+                                reportDTO.getTeacherFirstName().toLowerCase() + "." +
+                                        reportDTO.getTeacherLastName().toLowerCase() + "@school.edu");
+                        newTeacher.setTeacherId("T" + System.currentTimeMillis());
+                        return teacherRepository.save(newTeacher);
+                    });
 
-                // Try to find teacher by first and last name
-                String teacherName = report.getTeacher().getFirstName() + " " + report.getTeacher().getLastName();
-                Optional<Teacher> existingTeachers = teacherRepository.findByFirstNameAndLastName(
-                        report.getTeacher().getFirstName(),
-                        report.getTeacher().getLastName());
-
-                if (existingTeachers.isPresent()) {
-                    // Use the first matching teacher
-                    report.setTeacher(existingTeachers.get());
-                } else {
-                    // Create new teacher if not found
-//                    Teacher newTeacher = new Teacher();
-//                    newTeacher.setFirstName(report.getTeacher().getFirstName());
-//                    newTeacher.setLastName(report.getTeacher().getLastName());
-//                    // Set other required fields with default values if needed
-//                    newTeacher.setEmail(report.getTeacher().getEmail() != null ?
-//                            report.getTeacher().getEmail() :
-//                            report.getTeacher().getFirstName().toLowerCase() +
-//                                    "." + report.getTeacher().getLastName().toLowerCase() +
-//                                    "@school.edu");
-//                    newTeacher.setTeacherId("T" + System.currentTimeMillis()); // Generate a temporary ID
-//                    report.setTeacher(teacherRepository.save(newTeacher));
-                }
-            }
+            // Create new report
+            Report report = new Report(
+                    establishment,
+                    reportDTO.getClassName(),
+                    teacher,
+                    reportDTO.getStudentNum(),
+                    reportDTO.getStudentPresent(),
+                    reportDTO.getDate(),
+                    reportDTO.getStartTime(),
+                    reportDTO.getEndTime(),
+                    reportDTO.getCourseTitle(),
+                    reportDTO.getObservation(),
+                    user
+            );
 
             return reportRepository.save(report);
         } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error saving report: " + e.getMessage());
-            throw new RuntimeException("Failed to save report: " + e.getMessage(), e);
+            throw new Exception(e.getMessage());
         }
     }
     //get all reports
@@ -109,15 +94,15 @@ public class ReportService {
 //    }
     // In your ReportService or wherever you fetch the reports
 
-    public List<ReportDto> getAllReportsAsDto() {
+    public List<ReportResponseDto> getAllReportsAsDto() {
         List<Report> reports = reportRepository.findAll(); // Your method to get reports
         return reports.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
 
-    private ReportDto convertToDto(Report report) {
-        ReportDto dto = new ReportDto();
+    private ReportResponseDto convertToDto(Report report) {
+        ReportResponseDto dto = new ReportResponseDto();
         dto.setReportId(report.getReportId());
         dto.setClassName(report.getClassName());
         dto.setStudentNum(report.getStudentNum());

@@ -1,6 +1,7 @@
 package com.TeacherReportSystem.Ramsy.Controllers.Report;
 
-import com.TeacherReportSystem.Ramsy.DTO.ReportDto;
+import com.TeacherReportSystem.Ramsy.DTO.ReportRequestDto;
+import com.TeacherReportSystem.Ramsy.DTO.ReportResponseDto;
 import com.TeacherReportSystem.Ramsy.Model.Report.Report;
 import com.TeacherReportSystem.Ramsy.Services.Report.ReportService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -26,14 +26,16 @@ public class ReportController {
 
     // Create a new report
     @PostMapping
-    public ResponseEntity<?> createReport(@RequestBody Report report) {
+    public ResponseEntity<?> createReport(@RequestBody ReportRequestDto report) throws Exception {
+        System.out.println("---------------------Creating report-----------------");
+        System.out.println(report.getUserEmail());
         reportService.addReport(report);
         return ResponseEntity.ok("Report created successfully");
     }
 
     // Get all reports
     @GetMapping
-    public ResponseEntity<Iterable<ReportDto>> getAllReports() {
+    public ResponseEntity<Iterable<ReportResponseDto>> getAllReports() {
         return ResponseEntity.ok(reportService.getAllReportsAsDto());
     }
 

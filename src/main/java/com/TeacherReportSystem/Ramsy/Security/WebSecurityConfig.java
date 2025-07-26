@@ -115,7 +115,7 @@ public class WebSecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:3000","http://localhost:9002","https://6000-firebase-studio-1752791964287.cluster-jbb3mjctu5cbgsi6hwq6u4btwe.cloudworkstations.dev","https://preview--edu-inspect-dc4ada87.base44.app","http://192.168.96.7")); // ✅ Correct way
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:3000","http://localhost:9002","https://6000-firebase-studio-1752791964287.cluster-jbb3mjctu5cbgsi6hwq6u4btwe.cloudworkstations.dev","https://preview--edu-inspect-dc4ada87.base44.app","http://localhost:9001")); // ✅ Correct way
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

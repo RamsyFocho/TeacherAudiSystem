@@ -56,7 +56,7 @@ public class User {
     @Column(name = "is_enabled", nullable = false)
     private boolean enabled = false;
 
-//    to easily get user by email
+//    to easily get user by email to create report
     public User(String email) {
         this.email = email;
     }

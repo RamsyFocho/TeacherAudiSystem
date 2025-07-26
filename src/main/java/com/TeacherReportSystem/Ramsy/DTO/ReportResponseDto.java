@@ -7,7 +7,7 @@ import java.time.LocalTime;
 import java.util.Set;
 
 @Data
-public class ReportDto {
+public class ReportResponseDto {
     private Long reportId;
     private String className;
     private long studentNum;
