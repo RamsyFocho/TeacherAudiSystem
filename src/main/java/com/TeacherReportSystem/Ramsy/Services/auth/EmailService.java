@@ -1,5 +1,6 @@
 package com.TeacherReportSystem.Ramsy.Services.auth;
 
+import com.TeacherReportSystem.Ramsy.Model.Auth.User;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.validation.constraints.Email;
@@ -31,6 +32,19 @@ public class EmailService {
         helper.setSubject(subject);
         helper.setText(htmlContent, true); // true = isHtml
         mailSender.send(message);
+    }
+
+    public void sendPasswordResetEmail(User user, String token, String frontendUrl) throws MessagingException {
+        String resetUrl = frontendUrl + "/reset-password?token=" + token;
+        String subject = "Password Reset Request";
+        String htmlContent = "<h3>Password Reset Request</h3>"
+                + "<p>Hi " + user.getUsername() + ",</p>"
+                + "<p>You recently requested to reset your password. Click the link below to reset it:</p>"
+                + "<p><a href=\"" + resetUrl + "\">Reset Password</a></p>"
+                + "<p>If you did not request a password reset, please ignore this email.</p>"
+                + "<p>This link will expire in 24 hours.</p>";
+
+        sendHtmlEmail(user.getEmail(), subject, htmlContent);
     }
 }
 

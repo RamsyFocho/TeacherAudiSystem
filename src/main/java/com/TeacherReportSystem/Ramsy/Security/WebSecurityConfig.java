@@ -98,6 +98,11 @@ public class WebSecurityConfig {
                             "/api/dashboard/**"
                         ).hasAnyRole("ADMIN","DIRECTOR","INSPECTOR")
                         
+                        // Cache management (Admin only)
+                        .requestMatchers(
+                            "/api/cache/**"
+                        ).hasRole("ADMIN")
+                        
                         // Establishment management (Admin and Director)
                         .requestMatchers(
                             "/api/establishments/**"

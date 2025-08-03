@@ -32,11 +32,11 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     List<Report> findBySanctionTypeOrDescription(String sanctionType, String description);
     
     // Find by teacher's name (using the relationship with Teacher entity)
-    @Query("SELECT r FROM Report r JOIN r.teacher t WHERE LOWER(CONCAT(t.firstName, ' ', t.lastName)) LIKE LOWER(CONCAT('%', :teacherName, '%'))")
+    @Query(value = "SELECT r.* FROM Report r JOIN Teacher t ON r.teacher_id = t.id WHERE LOWER(CONCAT(t.firstName, ' ', t.lastName)) LIKE LOWER(CONCAT('%', :teacherName, '%'))", nativeQuery = true)
     List<Report> findByTeacherNameContainingIgnoreCase(@Param("teacherName") String teacherName);
     
     // Find by establishment name (using the relationship with Establishment entity)
-    @Query("SELECT r FROM Report r JOIN r.establishment e WHERE LOWER(e.name) LIKE LOWER(CONCAT('%', :establishmentName, '%'))")
+    @Query(value = "SELECT r.* FROM Report r JOIN Establishment e ON r.establishment_id = e.id WHERE LOWER(e.name) LIKE LOWER(CONCAT('%', :establishmentName, '%'))", nativeQuery = true)
     List<Report> findByEstablishmentNameContainingIgnoreCase(@Param("establishmentName") String establishmentName);
     
     // Find by class name
@@ -49,22 +49,28 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     List<Report> findByDate(LocalDate date);
     
     // Find by year from the date
-    @Query("SELECT r FROM Report r WHERE YEAR(r.date) = :year")
+    @Query(value = "SELECT * FROM reports r WHERE YEAR(r.date) = :year", nativeQuery = true)
     List<Report> findByDateYear(@Param("year") int year);
 
-    @Query("SELECT e.name, COUNT(r) FROM Report r JOIN r.establishment e GROUP BY e.name")
+    @Query(value = "SELECT * FROM reports r WHERE r.deleted = true", nativeQuery = true)
+    List<Report> findSoftDeleted();
+
+    @Query(value = "SELECT e.name, COUNT(r.id) FROM reports r JOIN establishments e ON r.establishment_id = e.id GROUP BY e.name", nativeQuery = true)
     List<Object[]> countReportsByEstablishment();
 
-    @Query("SELECT CONCAT(t.firstName, ' ', t.lastName), COUNT(r) FROM Report r JOIN r.teacher t GROUP BY t.firstName, t.lastName")
+    @Query(value = "SELECT CONCAT(t.first_name, ' ', t.last_name), COUNT(r.id) FROM reports r JOIN teachers t ON r.teacher_id = t.id GROUP BY t.first_name, t.last_name", nativeQuery = true)
     List<Object[]> countReportsByTeacher();
 
-    @Query("SELECT SUM(r.studentNum), SUM(r.studentPresent) FROM Report r")
+    @Query(value = "SELECT SUM(r.student_num), SUM(r.student_present) FROM reports r", nativeQuery = true)
     Object[] getAttendanceSummary();
 
-    @Query("SELECT r FROM Report r ORDER BY r.dateIssued DESC LIMIT 5")
+    @Query(value = "SELECT * FROM reports r ORDER BY r.date_issued DESC LIMIT 5", nativeQuery = true)
     List<Report> findLatestReports();
 
-    @Query("SELECT r FROM Report r WHERE r.sanctionType IS NOT NULL")
+    @Query(value = "SELECT * FROM reports r WHERE r.sanction_type IS NOT NULL", nativeQuery = true)
     List<Report> findReportsWithSanctions();
 
 }
+
+
+

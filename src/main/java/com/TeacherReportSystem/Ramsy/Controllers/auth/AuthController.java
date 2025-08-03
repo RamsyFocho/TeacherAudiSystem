@@ -2,10 +2,13 @@ package com.TeacherReportSystem.Ramsy.Controllers.auth;
 
 import com.TeacherReportSystem.Ramsy.DTO.auth.*;
 import com.TeacherReportSystem.Ramsy.Exception.RegistrationException;
+import com.TeacherReportSystem.Ramsy.Exception.ResourceNotFoundException;
 import com.TeacherReportSystem.Ramsy.Model.Auth.*;
 import com.TeacherReportSystem.Ramsy.Repositories.auth.*;
 import com.TeacherReportSystem.Ramsy.Security.JwtUtils;
+import com.TeacherReportSystem.Ramsy.Services.auth.AuditService;
 import com.TeacherReportSystem.Ramsy.Services.auth.EmailService;
+import com.TeacherReportSystem.Ramsy.Services.auth.PasswordService;
 import com.TeacherReportSystem.Ramsy.Services.auth.RefreshTokenService;
 import com.TeacherReportSystem.Ramsy.Tools.EmailVerification;
 import jakarta.mail.MessagingException;
@@ -17,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,7 +41,7 @@ import java.io.IOException;
 @RequestMapping("/api/auth")
 public class AuthController {
     
-    @Autowired 
+    @Autowired
     private AuthenticationManager authenticationManager;
     
     @Autowired
@@ -63,6 +67,12 @@ public class AuthController {
     
     @Autowired
     private EmailService emailService;
+
+    @Autowired
+    private AuditService auditService;
+
+    @Autowired
+    private PasswordService passwordService;
     
     @Value("${app.frontend.url:http://localhost:9001}")
     private String frontendUrl;
@@ -73,25 +83,34 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getEmail(), loginRequest.getPassword()));
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getEmail(), loginRequest.getPassword()));
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
-        // Generate JWT access token
-        String jwt = jwtUtils.generateJwtToken(userDetails);
+            // Log successful login
+            auditService.logLoginSuccess(userDetails.getUsername());
 
-        // Create and save a refresh token for this user
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getId());
+            // Generate JWT access token
+            String jwt = jwtUtils.generateJwtToken(userDetails);
 
-        // Extract roles as strings
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
+            // Create and save a refresh token for this user
+            RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getId());
 
-        return ResponseEntity.ok(new JwtResponse(jwt, refreshToken.getToken(), roles));
+            // Extract roles as strings
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(new JwtResponse(jwt, refreshToken.getToken(), roles));
+        } catch (AuthenticationException e) {
+            // Log failed login attempt
+            auditService.logLoginFailure(loginRequest.getEmail(), e.getMessage());
+            throw e; // Re-throw the exception to be handled by the global exception handler
+        }
     }
 
     @PostMapping("/refreshToken")
@@ -333,5 +352,37 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    // --- Password Reset Endpoints ---
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestParam("email") String userEmail) {
+        try {
+            passwordService.createPasswordResetTokenForUser(userEmail);
+            return ResponseEntity.ok(new MessageResponse("A password reset link has been sent to your email."));
+        } catch (ResourceNotFoundException e) {
+            // To prevent email enumeration attacks, we send a generic success response even if the user is not found.
+            // The error is logged for the admin.
+            auditService.logAction("FORGOT_PASSWORD_ATTEMPT", "User", null, "Attempt to reset password for non-existent email: " + userEmail, false);
+            return ResponseEntity.ok(new MessageResponse("A password reset link has been sent to your email."));
+        } catch (MessagingException e) {
+            auditService.logAction("FORGOT_PASSWORD_FAILURE", "User", null, "Failed to send password reset email to: " + userEmail, false);
+            return ResponseEntity.status(500).body(new MessageResponse("Error sending password reset email. Please try again later."));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody PasswordResetRequest passwordResetRequest) {
+        String tokenValidationResult = passwordService.validatePasswordResetToken(passwordResetRequest.getToken());
+
+        if (tokenValidationResult != null) {
+            String message = "Invalid token.";
+            if (tokenValidationResult.equals("expired")) {
+                message = "Token has expired.";
+            }
+            return ResponseEntity.badRequest().body(new MessageResponse(message));
+        }
+
+        passwordService.changeUserPassword(passwordResetRequest.getToken(), passwordResetRequest.getNewPassword());
+        return ResponseEntity.ok(new MessageResponse("Password has been reset successfully."));
+    }
 }

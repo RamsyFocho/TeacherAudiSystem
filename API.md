@@ -7,27 +7,46 @@
    - [Verify Email](#verify-email)
    - [Resend Verification Email](#resend-verification-email)
    - [Refresh Token](#refresh-token)
+   - [Get Current User](#get-current-user)
+   - [Update Profile](#update-profile)
+   - [Forgot Password](#forgot-password)
+   - [Reset Password](#reset-password)
 
 2. [Reports](#reports)
    - [Create Report](#create-report)
    - [Get All Reports](#get-all-reports)
    - [Get Report by ID](#get-report-by-id)
-   - [Update Report](#update-report)
+   - [Update Report Sanction](#update-report-sanction)
    - [Delete Report](#delete-report)
    - [Search Reports](#search-reports)
 
 3. [Teachers](#teachers)
-   - [Upload Teachers](#upload-teachers)
+    - [Get All Teachers](#get-all-teachers)
+    - [Upload Teachers](#upload-teachers)
+    - [Update Teacher](#update-teacher)
 
 4. [Establishments](#establishments)
    - [Get All Establishments](#get-all-establishments)
    - [Create Establishment](#create-establishment)
    - [Create Multiple Establishments](#create-multiple-establishments)
+   - [Update Establishment](#update-establishment)
 
-5. [Email Messaging](#email-messaging)
-6. [Security](#security)
-7. [Error Handling](#error-handling)
-8. [User Roles & Permissions](#user-roles--permissions)
+5. [Analytics](#analytics)
+    - [Get Overview](#get-overview)
+    - [Get Reports by Establishment](#get-reports-by-establishment)
+    - [Get Reports by Teacher](#get-reports-by-teacher)
+    - [Get Attendance Summary](#get-attendance-summary)
+
+6. [Dashboard](#dashboard)
+    - [Get Latest Reports](#get-latest-reports)
+    - [Get Teacher Performance](#get-teacher-performance)
+    - [Get Establishment Performance](#get-establishment-performance)
+    - [Get Reports with Sanctions](#get-reports-with-sanctions)
+
+7. [Email Messaging](#email-messaging)
+8. [Security](#security)
+9. [Error Handling](#error-handling)
+10. [User Roles & Permissions](#user-roles--permissions)
 
 ---
 
@@ -99,12 +118,24 @@ Register a new user (Admin only).
 ```
 
 ### Verify Email
-Verify a user's email address using the token sent to their email.
+Verify a user's email address using the token sent to their email. This endpoint is a redirect GET request from the user's email client.
 
-- `token`: The verification token
-- `redirect` (optional): URL to redirect to after verification
+**Endpoint:** `GET /api/auth/verify`
 
-- `email`: User's email address
+**Query Parameters:**
+- `token`: The verification token.
+- `redirect` (optional): URL to redirect to after verification.
+
+**Response:**
+Redirects the user to the frontend with a success or error message in the query parameters.
+
+### Resend Verification Email
+Resends the verification email to a user.
+
+**Endpoint:** `POST /api/auth/resend-verification`
+
+**Query Parameters:**
+- `email`: The user's email address.
 
 **Response:**
 ```json
@@ -130,6 +161,93 @@ Get a new access token using a refresh token.
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "refreshToken": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### Get Current User
+Get the details of the currently authenticated user.
+
+**Endpoint:** `GET /api/auth/me`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Response:**
+```json
+{
+    "username": "currentuser",
+    "email": "currentuser@example.com",
+    "enabled": true,
+    "roles": [
+        "ROLE_INSPECTOR"
+    ]
+}
+```
+
+### Update Profile
+Update the profile of the currently authenticated user.
+
+**Endpoint:** `PUT /api/auth/update/profile`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Request Body:**
+```json
+{
+    "username": "newusername",
+    "email": "newemail@example.com",
+    "phoneNumber": "+1234567890",
+    "address": "123 New St",
+    "password": "newpassword123"
+}
+```
+
+**Response:**
+```json
+{
+    "username": "newusername",
+    "email": "newemail@example.com",
+    "phoneNumber": "+1234567890",
+    "address": "123 New St",
+    "roles": [
+        "ROLE_INSPECTOR"
+    ]
+}
+```
+
+### Forgot Password
+Initiate the password reset process for a user.
+
+**Endpoint:** `POST /api/auth/forgot-password`
+
+**Query Parameters:**
+- `email`: The email address of the user who forgot their password.
+
+**Response:**
+```json
+{
+    "message": "A password reset link has been sent to your email."
+}
+```
+
+### Reset Password
+Set a new password using a valid reset token.
+
+**Endpoint:** `POST /api/auth/reset-password`
+
+**Request Body:**
+```json
+{
+    "token": "the-reset-token-from-the-email-link",
+    "newPassword": "a-strong-new-password"
+}
+```
+
+**Response:**
+```json
+{
+    "message": "Password has been reset successfully."
 }
 ```
 ---
@@ -170,16 +288,29 @@ Create a new report.
 {
   "message": "Report created successfully"
 }
+```
 
 ### Get All Reports
+Get all reports.
 
+**Endpoint:** `GET /api/reports`
+
+**Headers:**
 - `Authorization: Bearer <token>`
 
 **Response:**
+```json
+[
+  {
+    "id": 1,
     "establishment": {"name": "Example High School"},
+    "teacher": {"firstName": "John", "lastName": "Doe"},
     "className": "10A",
     "courseTitle": "Mathematics",
     "date": "2025-06-12",
+    "startTime": "08:00:00",
+    "endTime": "09:30:00",
+    "presentStudents": 25,
     "absentStudents": 2,
     "observation": "Class was well prepared and engaging.",
     "sanctionType": "NONE"
@@ -213,8 +344,8 @@ Get a specific report by its ID.
 }
 ```
 
-### Update Report
-Update an existing report (Admin only).
+### Update Report Sanction
+Update an existing report's sanction and log the change (Admin only).
 
 **Endpoint:** `PUT /api/reports/sanction/{id}`
 
@@ -224,22 +355,49 @@ Update an existing report (Admin only).
 **Request Body:**
 ```json
 {
-  "id": 1,
-  "sanctionType": "WARNING"
+  "sanctionType": "WARNING",
+  "reason": "Repeated tardiness."
+}
+```
+
+**Response:**
+The full updated report object.
+
+### Soft-Delete Report
+Marks a report as deleted, requiring a reason. The report is not permanently removed from the database (Admin only).
+
+**Endpoint:** `PUT /api/reports/{id}/delete`
+
+**Headers:**
+- `Authorization: Bearer <admin_token>`
+
+**Request Body:**
+```json
+{
+  "reason": "Report was filed in error."
 }
 ```
 
 **Response:**
 ```json
 {
-  "id": 1,
-  "sanctionType": "WARNING"
-  // ... other fields
+    "message": "Report has been deleted successfully."
 }
 ```
 
+### Get Deleted Reports
+Retrieves a list of all reports that have been soft-deleted (Admin only).
+
+**Endpoint:** `GET /api/reports/deleted`
+
+**Headers:**
+- `Authorization: Bearer <admin_token>`
+
+**Response:**
+A list of soft-deleted report objects.
+
 ### Delete Report
-Delete a report (Admin only).
+Permanently delete a report (Admin only).
 
 **Endpoint:** `DELETE /api/reports/{id}`
 
@@ -253,25 +411,55 @@ Delete a report (Admin only).
 Search reports by various criteria.
 
 **Endpoints:**
-- `GET /api/reports/search/teacher?name=John` - Search by teacher name
-- `GET /api/reports/search/establishment?name=High` - Search by establishment name
-- `GET /api/reports/search/class?name=10A` - Search by class name
-- `GET /api/reports/search/course?title=Math` - Search by course title
+- `GET /api/reports/search/teacher?teacherName=John` - Search by teacher name
+- `GET /api/reports/search/establishment?establishmentName=High` - Search by establishment name
+- `GET /api/reports/search/class?className=10A` - Search by class name
+- `GET /api/reports/search/course?courseTitle=Math` - Search by course title
 - `GET /api/reports/date-range?startDate=2025-01-01T00:00:00Z&endDate=2025-12-31T23:59:59Z` - Search by date range
 - `GET /api/reports/search/description?keyword=engaging` - Search in descriptions
-- `GET /api/reports/search/year/2025` - Search by year
+- `GET /api/reports/search/year/{year}` - Search by year
+- `GET /api/reports/sanction/{sanctionType}` - Find by sanction type
+- `GET /api/reports/date-issued?dateIssued=2025-01-01T00:00:00Z` - Find by date issued
+- `GET /api/reports/search/date?date=2025-01-01` - Find by specific date
+
+### Sanction Auditing
+Retrieve sanction audit logs.
+
+**Endpoints:**
+- `GET /api/reports/sanctions/teacher/{teacherId}` - Get all sanctions for a specific teacher (Admin/Director only).
+- `GET /api/reports/sanctions/type/{sanctionType}` - Get all sanctions of a specific type (Admin/Director only).
 
 ---
 
 ## Teachers
 
+### Get All Teachers
+Get a list of all teachers.
+
+**Endpoint:** `GET /api/teachers`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Response:**
+```json
+[
+    {
+        "id": 1,
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "john.doe@example.com"
+    }
+]
+```
+
 ### Upload Teachers
-Upload teachers from an Excel file (Admin only).
+Upload teachers from an Excel file (Admin or Director only).
 
 **Endpoint:** `POST /api/teachers/upload`
 
 **Headers:**
-- `Authorization: Bearer <admin_token>`
+- `Authorization: Bearer <token>`
 - `Content-Type: multipart/form-data`
 
 **Request Body:**
@@ -281,6 +469,33 @@ Upload teachers from an Excel file (Admin only).
 ```json
 {
   "message": "Teachers uploaded successfully."
+}
+```
+
+### Update Teacher
+Update an existing teacher (Admin or Director only).
+
+**Endpoint:** `PUT /api/teachers/{id}`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Request Body:**
+```json
+{
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe.new@example.com"
+}
+```
+
+**Response:**
+```json
+{
+    "id": 1,
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe.new@example.com"
 }
 ```
 
@@ -305,12 +520,12 @@ Get a list of all establishments.
 ```
 
 ### Create Establishment
-Create a new establishment (Admin only).
+Create a new establishment (Admin or Director only).
 
 **Endpoint:** `POST /api/establishments`
 
 **Headers:**
-- `Authorization: Bearer <admin_token>`
+- `Authorization: Bearer <token>`
 - `Content-Type: application/json`
 
 **Request Body:**
@@ -329,12 +544,12 @@ Create a new establishment (Admin only).
 ```
 
 ### Create Multiple Establishments
-Create multiple establishments at once (Admin only).
+Create multiple establishments at once (Admin or Director only).
 
 **Endpoint:** `POST /api/establishments/list`
 
 **Headers:**
-- `Authorization: Bearer <admin_token>`
+- `Authorization: Bearer <token>`
 - `Content-Type: application/json`
 
 **Request Body:**
@@ -351,6 +566,183 @@ Create multiple establishments at once (Admin only).
   "message": "Establishments created successfully"
 }
 ```
+
+### Update Establishment
+Update an existing establishment (Admin or Director only).
+
+**Endpoint:** `PUT /api/establishments/{id}`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Request Body:**
+```json
+{
+    "name": "Updated School Name"
+}
+```
+
+**Response:**
+```json
+{
+    "id": 1,
+    "name": "Updated School Name"
+}
+```
+
+---
+
+## Analytics
+
+### Get Overview
+Get an overview of the system data.
+
+**Endpoint:** `GET /api/analytics/overview`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Response:**
+```json
+{
+    "totalUsers": 10,
+    "totalTeachers": 50,
+    "totalEstablishments": 5,
+    "totalReports": 100
+}
+```
+
+### Get Reports by Establishment
+Get the number of reports per establishment.
+
+**Endpoint:** `GET /api/analytics/reports-by-establishment`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Response:**
+```json
+[
+    {
+        "establishment": "Example High School",
+        "reportCount": 50
+    }
+]
+```
+
+### Get Reports by Teacher
+Get the number of reports per teacher.
+
+**Endpoint:** `GET /api/analytics/reports-by-teacher`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Response:**
+```json
+[
+    {
+        "teacher": "John Doe",
+        "reportCount": 10
+    }
+]
+```
+
+### Get Attendance Summary
+Get a summary of student attendance.
+
+**Endpoint:** `GET /api/analytics/attendance-summary`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Response:**
+```json
+{
+    "totalStudents": 1000,
+    "totalPresent": 950
+}
+```
+
+---
+
+## Dashboard
+
+### Get Latest Reports
+Get a list of the most recent reports.
+
+**Endpoint:** `GET /api/dashboard/latest-reports`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Response:**
+A list of report objects.
+
+### Get Teacher Performance
+Get performance metrics for a specific teacher.
+
+**Endpoint:** `GET /api/dashboard/teacher-performance/{teacherId}`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Response:**
+```json
+{
+    "totalClasses": 20,
+    "totalStudents": 500,
+    "totalPresent": 480
+}
+```
+
+### Get Establishment Performance
+Get performance metrics for a specific establishment.
+
+**Endpoint:** `GET /api/dashboard/establishment-performance/{establishmentId}`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Response:**
+```json
+{
+    "reportCount": 50,
+    "totalStudents": 1000,
+    "totalPresent": 950
+}
+```
+
+### Get Reports with Sanctions
+Get a list of all reports that have sanctions.
+
+**Endpoint:** `GET /api/dashboard/sanctions`
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Response:**
+A list of report objects with sanctions.
+
+---
+
+## Audit Trail
+
+### Get Audit Logs
+Get a paginated list of all audit logs (Admin only).
+
+**Endpoint:** `GET /api/audit`
+
+**Headers:**
+- `Authorization: Bearer <admin_token>`
+
+**Query Parameters:**
+- `page`: The page number to retrieve.
+- `size`: The number of items per page.
+- `sort`: Sorting criteria (e.g., `timestamp,desc`).
+
+**Response:**
+A paginated list of audit log objects.
 
 ---
 

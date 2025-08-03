@@ -1,9 +1,14 @@
 package com.TeacherReportSystem.Ramsy.Controllers.Report;
 
+import com.TeacherReportSystem.Ramsy.DTO.ReportDeletionRequest;
 import com.TeacherReportSystem.Ramsy.DTO.ReportRequestDto;
 import com.TeacherReportSystem.Ramsy.DTO.ReportResponseDto;
+import com.TeacherReportSystem.Ramsy.DTO.SanctionUpdateRequest;
+import com.TeacherReportSystem.Ramsy.DTO.auth.MessageResponse;
 import com.TeacherReportSystem.Ramsy.Model.Report.Report;
+import com.TeacherReportSystem.Ramsy.Model.Report.SanctionLog;
 import com.TeacherReportSystem.Ramsy.Services.Report.ReportService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -12,23 +17,18 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/reports")
 public class ReportController {
-    
-    private final ReportService reportService;
-
     @Autowired
-    public ReportController(ReportService reportService) {
-        this.reportService = reportService;
-    }
+    private ReportService reportService;
+
 
     // Create a new report
     @PostMapping
     public ResponseEntity<?> createReport(@RequestBody ReportRequestDto report) throws Exception {
-        System.out.println("---------------------Creating report-----------------");
-        System.out.println(report.getUserEmail());
         reportService.addReport(report);
         return ResponseEntity.ok("Report created successfully");
     }
@@ -42,30 +42,29 @@ public class ReportController {
     @GetMapping("/{id}")
     public ResponseEntity<Report> getReportById(@PathVariable Long id) {
         Report report = reportService.getReportById(id);
-        return report != null ? 
-               ResponseEntity.ok(report) : 
-               ResponseEntity.notFound().build();
+        return ResponseEntity.ok(report);
     }
 
-    // Update a report
+    // Update a report's sanction
     @PutMapping("/sanction/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Report> updateReport(@PathVariable Long id, @RequestBody Report reportDetails) {
-        Report existingReport = reportService.getReportById(id);
-        if (existingReport == null) {
-            return ResponseEntity.notFound().build();
-        }
-        reportService.updateReport(reportDetails);
-        return ResponseEntity.ok(reportDetails);
+    public ResponseEntity<Report> updateReportSanction(@PathVariable Long id, @Valid @RequestBody SanctionUpdateRequest sanctionRequest) {
+        Report updatedReport = reportService.updateReportSanction(id, sanctionRequest);
+        return ResponseEntity.ok(updatedReport);
+    }
+
+    // Soft-delete a report
+    @PutMapping("/{id}/delete")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> softDeleteReport(@PathVariable Long id, @Valid @RequestBody ReportDeletionRequest deletionRequest) {
+        reportService.softDeleteReport(id, deletionRequest.getReason());
+        return ResponseEntity.ok(new MessageResponse("Report has been deleted successfully."));
     }
 
     // Delete a report
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteReport(@PathVariable Long id) {
-        if (reportService.getReportById(id) == null) {
-            return ResponseEntity.notFound().build();
-        }
         reportService.deleteReportById(id);
         return ResponseEntity.noContent().build();
     }
@@ -149,4 +148,28 @@ public class ReportController {
     public ResponseEntity<Iterable<Report>> getReportsByYear(@PathVariable int year) {
         return ResponseEntity.ok(reportService.findByDateYear(year));
     }
+
+    // --- New Sanction Audit Endpoints ---
+
+    @GetMapping("/sanctions/teacher/{teacherId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    public ResponseEntity<List<SanctionLog>> getSanctionsByTeacher(@PathVariable Long teacherId) {
+        return ResponseEntity.ok(reportService.getSanctionsByTeacher(teacherId));
+    }
+
+    @GetMapping("/sanctions/type/{sanctionType}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    public ResponseEntity<List<SanctionLog>> getSanctionsByType(@PathVariable String sanctionType) {
+        return ResponseEntity.ok(reportService.getSanctionsByType(sanctionType));
+    }
+
+    @GetMapping("/deleted")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Report>> getDeletedReports() {
+        return ResponseEntity.ok(reportService.getDeletedReports());
+    }
+
 }
+
+
+

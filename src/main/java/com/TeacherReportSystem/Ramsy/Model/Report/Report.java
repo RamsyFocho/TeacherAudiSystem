@@ -3,10 +3,11 @@ package com.TeacherReportSystem.Ramsy.Model.Report;
 import com.TeacherReportSystem.Ramsy.Model.Auth.User;
 import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
 import com.TeacherReportSystem.Ramsy.Model.TeacherModule.Teacher;
-import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Where;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -16,6 +17,7 @@ import java.time.LocalTime;
 @Table(name = "reports")
 @Data
 @NoArgsConstructor
+@Where(clause = "deleted = false")
 public class Report {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,7 +25,6 @@ public class Report {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "establishment_id", nullable = false)
-    // --- CHANGE 3: Use the name from the Establishment class ---
     @JsonBackReference("establishment-report")
     private Establishment establishment;
 
@@ -32,7 +33,6 @@ public class Report {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "teacher_id", nullable = false)
-    // --- CHANGE 4: Use the name from the Teacher class ---
     @JsonBackReference("teacher-report")
     private Teacher teacher;
 
@@ -71,6 +71,18 @@ public class Report {
     
     @Column(name = "date_issued")
     private Instant dateIssued;
+
+    // Soft delete fields
+    private boolean deleted = false;
+
+    private Instant deletedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deleted_by")
+    @JsonBackReference("deleted-by-report")
+    private User deletedBy;
+
+    private String deletionReason;
 
     // Inspector/director constructor
     public Report(Establishment establishment, String className, Teacher teacher, long studentNum, 

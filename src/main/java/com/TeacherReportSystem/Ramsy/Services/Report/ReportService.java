@@ -1,23 +1,34 @@
 package com.TeacherReportSystem.Ramsy.Services.Report;
 
+import com.TeacherReportSystem.Ramsy.Config.CacheConfig;
 import com.TeacherReportSystem.Ramsy.DTO.ReportRequestDto;
 import com.TeacherReportSystem.Ramsy.DTO.ReportResponseDto;
+import com.TeacherReportSystem.Ramsy.DTO.SanctionUpdateRequest;
 import com.TeacherReportSystem.Ramsy.Exception.ResourceNotFoundException;
 import com.TeacherReportSystem.Ramsy.Model.Auth.User;
 import com.TeacherReportSystem.Ramsy.Model.EstablishmentModule.Establishment;
 import com.TeacherReportSystem.Ramsy.Model.Report.Report;
+import com.TeacherReportSystem.Ramsy.Model.Report.SanctionLog;
 import com.TeacherReportSystem.Ramsy.Model.TeacherModule.Teacher;
 import com.TeacherReportSystem.Ramsy.Repositories.EstablishmentModule.EstablishmentRepository;
 import com.TeacherReportSystem.Ramsy.Repositories.Report.ReportRepository;
+import com.TeacherReportSystem.Ramsy.Repositories.Report.SanctionLogRepository;
 import com.TeacherReportSystem.Ramsy.Repositories.TeacherModule.TeacherRepository;
 import com.TeacherReportSystem.Ramsy.Repositories.auth.UserRepository;
+import com.TeacherReportSystem.Ramsy.Services.auth.AuditService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,8 +41,20 @@ public class ReportService {
     TeacherRepository teacherRepository;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private SanctionLogRepository sanctionLogRepository;
+    @Autowired
+    private AuditService auditService;
+
     //add report with proper error handling
     // Update the addReport method
+    @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.REPORTS_CACHE, allEntries = true),
+        @CacheEvict(value = CacheConfig.REPORT_STATS_CACHE, allEntries = true),
+        @CacheEvict(value = CacheConfig.TEACHER_REPORTS_CACHE, allEntries = true),
+        @CacheEvict(value = CacheConfig.ESTABLISHMENT_REPORTS_CACHE, allEntries = true)
+    })
     public Report addReport(ReportRequestDto reportDTO) throws Exception {
         try {
             // Find or create user
@@ -77,25 +100,24 @@ public class ReportService {
                     user
             );
 
-            return reportRepository.save(report);
+            Report savedReport = reportRepository.save(report);
+
+            // Log the action
+            String details = String.format("Report created for teacher '%s' in establishment '%s'.",
+                    teacher.getFullName(), establishment.getName());
+            auditService.logAction("CREATE_REPORT", "Report", savedReport.getReportId(), details, true);
+
+
+            return savedReport;
         } catch (Exception e) {
+            auditService.logAction("CREATE_REPORT", "Report", null, e.getMessage(), false);
             throw new Exception(e.getMessage());
         }
     }
-    //get all reports
-//    public Iterable<Report> getAllReports() {
-//        try {
-//            return reportRepository.findAll();
-//        } catch (Exception e) {
-//            // Handle the exception, log it, or rethrow it as needed
-//            System.err.println("Error retrieving reports: " + e.getMessage());
-//            return null; // or throw a custom exception
-//        }
-//    }
-    // In your ReportService or wherever you fetch the reports
 
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'all_reports'")
     public List<ReportResponseDto> getAllReportsAsDto() {
-        List<Report> reports = reportRepository.findAll(); // Your method to get reports
+        List<Report> reports = reportRepository.findAll();
         return reports.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -129,156 +151,184 @@ public class ReportService {
 
         return dto;
     }
-    //get report by id
+    //get report by id with caching
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "#id")
     public Report getReportById(Long id) {
-        try {
-            return reportRepository.findById(id).orElse(null);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error retrieving report by ID: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
+        return reportRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Report not found with id: " + id));
     }
-    //delete report by id
+
+    @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.REPORTS_CACHE, key = "#reportId"),
+        @CacheEvict(value = CacheConfig.REPORTS_CACHE, key = "'all_reports'"),
+        @CacheEvict(value = CacheConfig.REPORT_STATS_CACHE, allEntries = true),
+        @CacheEvict(value = CacheConfig.TEACHER_REPORTS_CACHE, allEntries = true),
+        @CacheEvict(value = CacheConfig.ESTABLISHMENT_REPORTS_CACHE, allEntries = true)
+    })
+    public void softDeleteReport(Long reportId, String reason) {
+        // Get the current authenticated user
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User admin = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Current user not found, cannot delete report."));
+
+        // Get the report
+        Report report = getReportById(reportId);
+
+        // Mark the report as deleted
+        report.setDeleted(true);
+        report.setDeletedAt(Instant.now());
+        report.setDeletedBy(admin);
+        report.setDeletionReason(reason);
+        reportRepository.save(report);
+
+        // Log the action
+        String details = String.format("Report ID %d was soft-deleted. Reason: %s", reportId, reason);
+        auditService.logAction("SOFT_DELETE_REPORT", "Report", reportId, details, true);
+    }
+
+    //delete report by id with cache eviction
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.REPORTS_CACHE, key = "#id"),
+        @CacheEvict(value = CacheConfig.REPORTS_CACHE, key = "'all_reports'"),
+        @CacheEvict(value = CacheConfig.REPORT_STATS_CACHE, allEntries = true),
+        @CacheEvict(value = CacheConfig.TEACHER_REPORTS_CACHE, allEntries = true),
+        @CacheEvict(value = CacheConfig.ESTABLISHMENT_REPORTS_CACHE, allEntries = true)
+    })
     public void deleteReportById(Long id) {
-        try {
-            reportRepository.deleteById(id);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error deleting report by ID: " + e.getMessage());
-        }
+        reportRepository.deleteById(id);
+        auditService.logAction("DELETE_REPORT", "Report", id, "Report with ID " + id + " was deleted.", true);
     }
-    //update report
-    public void updateReport(Report report) {
-        try {
-            reportRepository.save(report);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error updating report: " + e.getMessage());
+
+    @Transactional
+    @Caching(
+        put = {
+            @CachePut(value = CacheConfig.REPORTS_CACHE, key = "#reportId"),
+            @CachePut(value = CacheConfig.SANCTIONS_CACHE, key = "#reportId")
+        },
+        evict = {
+            @CacheEvict(value = CacheConfig.REPORTS_CACHE, key = "'all_reports'"),
+            @CacheEvict(value = CacheConfig.REPORT_STATS_CACHE, allEntries = true),
+            @CacheEvict(value = CacheConfig.TEACHER_REPORTS_CACHE, allEntries = true)
         }
+    )
+    public Report updateReportSanction(Long reportId, SanctionUpdateRequest sanctionRequest) {
+        // Get the current authenticated user
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User admin = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Current user not found, cannot apply sanction."));
+
+        // Get the report
+        Report report = getReportById(reportId);
+
+        // Update the sanction on the report itself
+        report.setSanctionType(sanctionRequest.getSanctionType());
+        Report updatedReport = reportRepository.save(report);
+
+        // Create a sanction log entry
+        SanctionLog sanctionLog = SanctionLog.builder()
+                .report(updatedReport)
+                .teacher(updatedReport.getTeacher())
+                .sanctionType(sanctionRequest.getSanctionType())
+                .updatedBy(admin)
+                .updatedAt(Instant.now())
+                .reason(sanctionRequest.getReason())
+                .build();
+
+        sanctionLogRepository.save(sanctionLog);
+
+        // Log the action
+        String details = String.format("Sanction '%s' applied to report ID %d. Reason: %s",
+                sanctionRequest.getSanctionType(), reportId, sanctionRequest.getReason());
+        auditService.logAction("UPDATE_SANCTION", "Report", reportId, details, true);
+
+
+        return updatedReport;
     }
-    //find by sanction type
+
+    //find by sanction type with caching
+    @Cacheable(value = CacheConfig.SANCTIONS_CACHE, key = "'type_'.concat(#sanctionType)")
     public Iterable<Report> findBySanctionType(String sanctionType) {
-        try {
-            return reportRepository.findBySanctionType(sanctionType);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by sanction type: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
+        return reportRepository.findBySanctionType(sanctionType);
     }
-    //find by date issued
+    //find by date issued with caching
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'date_issued_'.concat(#dateIssued.toString())")
     public Iterable<Report> findByDateIssued(Instant dateIssued) {
-        try {
-            return reportRepository.findByDateIssued(dateIssued);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by date issued: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
+        return reportRepository.findByDateIssued(dateIssued);
+    }
+
+    //find by date range with caching
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'date_range_'.concat(#startDate.toString()).concat('_').concat(#endDate.toString())")
+    public Iterable<Report> findByDateIssuedBetween(Instant startDate, Instant endDate) {
+        return reportRepository.findByDateIssuedBetween(startDate, endDate);
+    }
+    //find by description with caching
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'desc_'.concat(#keyword.toLowerCase())")
+    public Iterable<Report> findByDescriptionContaining(String keyword) {
+        return reportRepository.findByDescriptionContaining(keyword);
+    }
+    //find by sanction type and date issued with caching
+    @Cacheable(value = CacheConfig.SANCTIONS_CACHE, key = "'type_'.concat(#sanctionType).concat('_date_').concat(#dateIssued.toString())")
+    public Iterable<Report> findBySanctionTypeAndDateIssued(String sanctionType, Instant dateIssued) {
+        return reportRepository.findBySanctionTypeAndDateIssued(sanctionType, dateIssued);
+    }
+    //find by sanction type or description with caching
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'type_or_desc_'.concat(#sanctionType != null ? #sanctionType : 'null').concat('_').concat(#description != null ? #description.hashCode() : 'null')")
+    public Iterable<Report> findBySanctionTypeOrDescription(String sanctionType, String description) {
+        return reportRepository.findBySanctionTypeOrDescription(sanctionType, description);
+    }
+    //find by teacher's name with caching
+    @Cacheable(value = CacheConfig.TEACHER_REPORTS_CACHE, key = "'teacher_'.concat(#teacherName.toLowerCase())")
+    public Iterable<Report> findByTeacherNameContainingIgnoreCase(String teacherName) {
+        return reportRepository.findByTeacherNameContainingIgnoreCase(teacherName);
+    }
+    //find by establishment's name with caching
+    @Cacheable(value = CacheConfig.ESTABLISHMENT_REPORTS_CACHE, key = "'establishment_'.concat(#establishmentName.toLowerCase())")
+    public Iterable<Report> findByEstablishmentNameContainingIgnoreCase(String establishmentName) {
+        return reportRepository.findByEstablishmentNameContainingIgnoreCase(establishmentName);
+    }
+    //find by class name with caching
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'class_'.concat(#className.toLowerCase())")
+    public Iterable<Report> findByClassNameContainingIgnoreCase(String className) {
+        return reportRepository.findByClassNameContainingIgnoreCase(className);
+    }
+    //find by course title with caching
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'course_'.concat(#courseTitle.toLowerCase())")
+    public Iterable<Report> findByCourseTitleContainingIgnoreCase(String courseTitle) {
+        return reportRepository.findByCourseTitleContainingIgnoreCase(courseTitle);
+    }
+    //find by date with caching
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'date_'.concat(#date.toString())")
+    public Iterable<Report> findByDate(LocalDate date) {
+        return reportRepository.findByDate(date);
+    }
+    //find by year from the date with caching
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'year_'.concat(#year)")
+    public Iterable<Report> findByDateYear(int year) {
+        return reportRepository.findByDateYear(year);
+    }
+
+    @Cacheable(value = CacheConfig.TEACHER_REPORTS_CACHE, key = "'sanctions_'.concat(#teacherId)")
+    public List<SanctionLog> getSanctionsByTeacher(Long teacherId) {
+        return sanctionLogRepository.findByTeacherId(teacherId);
+    }
+
+    @Cacheable(value = CacheConfig.SANCTIONS_CACHE, key = "#sanctionType")
+    public List<SanctionLog> getSanctionsByType(String sanctionType) {
+        return sanctionLogRepository.findBySanctionType(sanctionType);
+    }
+
+    @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'deleted_reports'")
+    public List<Report> getDeletedReports() {
+        return reportRepository.findSoftDeleted();
     }
     
-    //find by date range
-    public Iterable<Report> findByDateIssuedBetween(Instant startDate, Instant endDate) {
-        try {
-            return reportRepository.findByDateIssuedBetween(startDate, endDate);
-        } catch (Exception e) {
-            System.err.println("Error finding reports by date range: " + e.getMessage());
-            return null;
-        }
+    // Scheduled cache eviction for reports cache (runs every hour)
+    @Scheduled(fixedRate = 60 * 60 * 1000) // 1 hour
+    @CacheEvict(value = CacheConfig.REPORTS_CACHE, allEntries = true)
+    public void evictAllCaches() {
+        // This method will be called by the scheduler to clear the cache
     }
-    //find by description
-    public Iterable<Report> findByDescriptionContaining(String keyword) {
-        try {
-            return reportRepository.findByDescriptionContaining(keyword);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by description: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
-    }
-    //find by sanction type and date issued
-    public Iterable<Report> findBySanctionTypeAndDateIssued(String sanctionType, Instant dateIssued) {
-        try {
-            return reportRepository.findBySanctionTypeAndDateIssued(sanctionType, dateIssued);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by sanction type and date issued: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
-    }
-    //find by sanction type or description
-    public Iterable<Report> findBySanctionTypeOrDescription(String sanctionType, String description) {
-        try {
-            return reportRepository.findBySanctionTypeOrDescription(sanctionType, description);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by sanction type or description: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
-    }
-    //find by teacher's name
-    public Iterable<Report> findByTeacherNameContainingIgnoreCase(String teacherName) {
-        try {
-            return reportRepository.findByTeacherNameContainingIgnoreCase(teacherName);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by teacher's name: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
-    }
-    //find by establishment's name
-    public Iterable<Report> findByEstablishmentNameContainingIgnoreCase(String establishmentName) {
-        try {
-            return reportRepository.findByEstablishmentNameContainingIgnoreCase(establishmentName);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by establishment's name: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
-    }
-    //find by class name
-    public Iterable<Report> findByClassNameContainingIgnoreCase(String className) {
-        try {
-            return reportRepository.findByClassNameContainingIgnoreCase(className);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by class name: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
-    }
-    //find by course title
-    public Iterable<Report> findByCourseTitleContainingIgnoreCase(String courseTitle) {
-        try {
-            return reportRepository.findByCourseTitleContainingIgnoreCase(courseTitle);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by course title: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
-    }
-    //find by date
-    public Iterable<Report> findByDate(LocalDate date) {
-        try {
-            return reportRepository.findByDate(date);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by date: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
-    }
-    //find by year from the date
-    public Iterable<Report> findByDateYear(int year) {
-        try {
-            return reportRepository.findByDateYear(year);
-        } catch (Exception e) {
-            // Handle the exception, log it, or rethrow it as needed
-            System.err.println("Error finding reports by year: " + e.getMessage());
-            return null; // or throw a custom exception
-        }
-    }
-
-
-
-
 }
+
+
