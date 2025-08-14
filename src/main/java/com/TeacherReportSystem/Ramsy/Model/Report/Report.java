@@ -68,9 +68,15 @@ public class Report {
     
     @Column(columnDefinition = "TEXT")
     private String description;
-    
+
     @Column(name = "date_issued")
     private Instant dateIssued;
+
+//    @Column(name = "sanctionBy")
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "id", nullable = false)
+//    @JsonBackReference("user-report")
+//    private User sanctionedBy;
 
     // Soft delete fields
     private boolean deleted = false;

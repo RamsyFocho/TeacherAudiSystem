@@ -223,6 +223,8 @@ public class ReportService {
 
         // Update the sanction on the report itself
         report.setSanctionType(sanctionRequest.getSanctionType());
+        report.setDateIssued(Instant.now());
+//        report.setSanctionedBy(admin);
         Report updatedReport = reportRepository.save(report);
 
         // Create a sanction log entry
@@ -320,7 +322,8 @@ public class ReportService {
 
     @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'deleted_reports'")
     public List<Report> getDeletedReports() {
-        return reportRepository.findSoftDeleted();
+       List<Report> deletedReports = reportRepository.findSoftDeleted();
+       return deletedReports;
     }
     
     // Scheduled cache eviction for reports cache (runs every hour)
