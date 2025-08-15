@@ -1,7 +1,10 @@
 package com.TeacherReportSystem.Ramsy.DTO;
 
 import com.TeacherReportSystem.Ramsy.Model.Auth.Role;
+import com.TeacherReportSystem.Ramsy.Model.Auth.User;
 import lombok.Data;
+
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Set;
@@ -18,6 +21,7 @@ public class ReportResponseDto {
     private String courseTitle;
     private String observation;
     private String sanctionType;
+    private LocalDate dateIssued;
 
     // Add fields for the nested objects
     private String establishmentName;
@@ -27,4 +31,9 @@ public class ReportResponseDto {
     private String email;
     private String phoneNumber;
     private Set<Role> role;
+
+//    deletion
+    private Instant deletedAt;
+    private String deletionReason;
+    private String deletedBy;
 }

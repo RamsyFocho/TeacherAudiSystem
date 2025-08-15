@@ -87,7 +87,6 @@ public class Report {
     @JoinColumn(name = "deleted_by")
     @JsonBackReference("deleted-by-report")
     private User deletedBy;
-
     private String deletionReason;
 
     // Inspector/director constructor

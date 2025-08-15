@@ -135,6 +135,8 @@ public class ReportService {
         dto.setCourseTitle(report.getCourseTitle());
         dto.setObservation(report.getObservation());
         dto.setSanctionType(report.getSanctionType());
+        dto.setDeletedAt(report.getDeletedAt());
+        dto.setDeletedBy(report.getDeletedBy().getUsername());
 
         // This safely accesses the lazy-loaded fields within the active transaction
         if (report.getEstablishment() != null) {
@@ -169,7 +171,7 @@ public class ReportService {
     public void softDeleteReport(Long reportId, String reason) {
         // Get the current authenticated user
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User admin = userRepository.findByUsername(username)
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("Current user not found, cannot delete report."));
 
         // Get the report
@@ -178,7 +180,7 @@ public class ReportService {
         // Mark the report as deleted
         report.setDeleted(true);
         report.setDeletedAt(Instant.now());
-        report.setDeletedBy(admin);
+        report.setDeletedBy(user);
         report.setDeletionReason(reason);
         reportRepository.save(report);
 
@@ -321,9 +323,12 @@ public class ReportService {
     }
 
     @Cacheable(value = CacheConfig.REPORTS_CACHE, key = "'deleted_reports'")
-    public List<Report> getDeletedReports() {
+    public List<ReportResponseDto> getDeletedReports() {
        List<Report> deletedReports = reportRepository.findSoftDeleted();
-       return deletedReports;
+//       return deletedReports;
+        return deletedReports.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
     
     // Scheduled cache eviction for reports cache (runs every hour)

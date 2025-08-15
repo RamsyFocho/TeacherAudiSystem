@@ -165,7 +165,7 @@ public class ReportController {
 
     @GetMapping("/deleted")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Report>> getDeletedReports() {
+    public ResponseEntity<List<ReportResponseDto>> getDeletedReports() {
         return ResponseEntity.ok(reportService.getDeletedReports());
     }
 
